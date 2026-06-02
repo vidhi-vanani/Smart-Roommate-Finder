@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy.exc import IntegrityError
 
@@ -36,6 +36,21 @@ def create_user(
     occupation: Optional[str] = None,
     city: Optional[str] = None,
     phone_number: Optional[str] = None,
+    diet: Optional[str] = None,
+    allergies: Optional[List[str]] = None,
+    description: Optional[str] = None,
+    street_address: Optional[str] = None,
+    zip_code: Optional[int] = None,
+    state: Optional[str] = None,
+    country: Optional[str] = None,
+    min_budget: Optional[int] = None,
+    max_budget: Optional[int] = None,
+    quiet_hours_from: Optional[int] = None,
+    quiet_hours_to: Optional[int] = None,
+    cleanliness: Optional[str] = None,
+    social_interaction: Optional[str] = None,
+    interests: Optional[str] = None,
+    smoking_preference: Optional[bool] = None,
 ) -> User:
     if password:
         password_value = hash_password(password)
@@ -54,6 +69,21 @@ def create_user(
             occupation=occupation,
             city=city,
             phone_number=phone_number,
+            diet=diet,
+            allergies=allergies,
+            description=description,
+            street_address=street_address,
+            zip_code=zip_code,
+            state=state,
+            country=country,
+            min_budget=min_budget,
+            max_budget=max_budget,
+            quiet_hours_from=quiet_hours_from,
+            quiet_hours_to=quiet_hours_to,
+            cleanliness=cleanliness,
+            social_interaction=social_interaction,
+            interests=interests,
+            smoking_preference=smoking_preference,
         )
         db.add(new_user)
         db.commit()
@@ -62,5 +92,22 @@ def create_user(
     except IntegrityError:
         db.rollback()
         raise
+    finally:
+        db.close()
+
+
+def update_user_preferences(user_id: int, preferences: dict) -> Optional[User]:
+    db = _open_session()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
+
+        for field, value in preferences.items():
+            setattr(user, field, value)
+
+        db.commit()
+        db.refresh(user)
+        return user
     finally:
         db.close()

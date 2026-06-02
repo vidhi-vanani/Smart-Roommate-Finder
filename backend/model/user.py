@@ -26,6 +26,15 @@ class User(Base):
     state = Column(String, nullable=True)
     country = Column(String, nullable=True)
     occupation = Column(String, nullable=True)
+    min_budget = Column(Integer, nullable=True)
+    max_budget = Column(Integer, nullable=True)
+    quiet_hours_from = Column(Integer, nullable=True)
+    quiet_hours_to = Column(Integer, nullable=True)
+    cleanliness = Column(String, nullable=True)
+    social_interaction = Column(String, nullable=True)
+    interests = Column(String, nullable=True)
+    smoking_preference = Column(Boolean, nullable=True)
+    profile_photo = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
 
     def __str__(self):

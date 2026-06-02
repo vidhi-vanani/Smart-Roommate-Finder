@@ -66,7 +66,9 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      await loginUser(formData.email, formData.password);
+      const response = await loginUser(formData.email, formData.password);
+      window.localStorage.setItem('smart_roommate_user_id', String(response.user_id));
+      window.localStorage.setItem('smart_roommate_user_email', response.email);
       setSuccessMessage('Login successful! Redirecting...');
       setFormData({ email: '', password: '' });
       setTimeout(() => {
@@ -122,7 +124,7 @@ export default function LoginForm() {
       </FormButton>
 
       <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{' '}
         <a href="/register" className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
           Create one
         </a>

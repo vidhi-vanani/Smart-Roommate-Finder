@@ -1,11 +1,13 @@
 
 """ 
-Main
+Main file
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import engine, Base
+from db.schema_sync import sync_user_preference_columns
 from routes.user import router as user_router
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -25,5 +27,9 @@ app.add_middleware(
 )
 
 Base.metadata.create_all(bind=engine)
+sync_user_preference_columns()
+
+# Serve uploaded static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(user_router)
