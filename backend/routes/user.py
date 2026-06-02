@@ -1,144 +1,95 @@
 """
-User
+User routes
 """
-import hashlib
-import hmac
-import os
-import binascii
-from fastapi import APIRouter, Body, HTTPException
-from db.database import SessionLocal
-from model.user import User
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.exc import IntegrityError
+
+from schemas.user import UserCreate, UserLogin, UserRead, UserResponse
+from services.security import verify_password
+from services.user_service import (
+    create_user as create_user_service,
+    find_user_by_email,
+    find_user_by_id as find_user_by_id_service,
+)
 
 router = APIRouter()
 
 
-def hash_password(password: str) -> str:
-    """Hash a plaintext password using PBKDF2-HMAC-SHA256."""
-    salt = os.urandom(16)
-    pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100_000)
-    return f"{binascii.hexlify(salt).decode('utf-8')}:{binascii.hexlify(pwd_hash).decode('utf-8')}"
-
-
-def verify_password(password: str, stored_hash: str) -> bool:
-    """Verify a plaintext password against a stored salt:hash."""
-    salt_hex, hash_hex = stored_hash.split(':')
-    salt = binascii.unhexlify(salt_hex)
-    expected_hash = binascii.unhexlify(hash_hex)
-    pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100_000)
-    return hmac.compare_digest(pwd_hash, expected_hash)
-
-
-@router.post("/users/")
-def register_user(user_data: dict = Body(...)):
-    """
-    Register a new user
-    Expected fields: name, email, password, phone_number
-    """
-    db = SessionLocal()
-
-    try:
-        # Check if user already exists
-        existing_user = db.query(User).filter(User.email == user_data.get("email")).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-        # Hash user password before saving
-        raw_password = user_data.get("password")
-        if not raw_password:
-            raise HTTPException(status_code=400, detail="Password is required")
-
-        new_user = User(
-            username=user_data.get("name"),
-            email=user_data.get("email"),
-            hashed_password=hash_password(raw_password),
-            age=user_data.get("age"),
-            occupation=user_data.get("occupation"),
-            city=user_data.get("city"),
-            phone_number=user_data.get("phone_number")
-        )
-
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-
-        return {
-            "message": "User registered successfully",
-            "user_id": new_user.id,
-            "email": new_user.email
-        }
-
-    except IntegrityError as e:
-        db.rollback()
+@router.post("/users/", response_model=UserResponse)
+def register_user(user_data: UserCreate):
+    """Register a new user."""
+    existing_user = find_user_by_email(user_data.email)
+    if existing_user:
         raise HTTPException(status_code=400, detail="User with this email already exists")
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-    finally:
-        db.close()
-
-
-@router.post("/user")
-def create_user(user_data: dict = Body(...)):
-    """
-    user_data: dict
-    """
-    db = SessionLocal()
 
     try:
-        raw_password = user_data.get("password")
-        stored_password = user_data.get("hashed_password")
-
-        if raw_password:
-            password_value = hash_password(raw_password)
-        elif stored_password:
-            password_value = stored_password
-        else:
-            raise HTTPException(status_code=400, detail="Password is required")
-
-        new_user = User(
-            username=user_data["username"],
-            email=user_data["email"],
-            hashed_password=password_value,
-            age=user_data["age"],
-            occupation=user_data["occupation"],
-            city=user_data["city"],
-            phone_number=user_data["phone_number"]
+        new_user = create_user_service(
+            username=user_data.name,
+            email=user_data.email,
+            password=user_data.password,
+            age=user_data.age,
+            occupation=user_data.occupation,
+            city=user_data.city,
+            phone_number=user_data.phone_number,
         )
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-
-        return {
-            "message": "User created successfully",
-            "user_id": new_user.id
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
-
-    finally:
-        db.close()
+    return {
+        "message": "User registered successfully",
+        "user_id": new_user.id,
+        "email": new_user.email,
+    }
 
 
-@router.get("/user/{user_id}")
-def get_user_by_id(user_id: int):
-    """
-    Get user by id
-    """
-    db = SessionLocal()
+@router.post("/login/", response_model=UserResponse)
+def login_user(user_data: UserLogin):
+    """Authenticate a user by email and password."""
+    user = find_user_by_email(user_data.email)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
 
+    if not verify_password(user_data.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    return {
+        "message": "Login successful",
+        "user_id": user.id,
+        "email": user.email,
+    }
+
+
+@router.post("/user", response_model=UserResponse)
+def create_user(user_data: UserCreate):
+    """Create a user record."""
     try:
-        user = db.query(User).filter(User.id == user_id).first()
+        new_user = create_user_service(
+            username=user_data.name,
+            email=user_data.email,
+            password=user_data.password,
+            age=user_data.age,
+            occupation=user_data.occupation,
+            city=user_data.city,
+            phone_number=user_data.phone_number,
+        )
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-        if not user:
-            return {"message": "User not found"}
+    return {
+        "message": "User created successfully",
+        "user_id": new_user.id,
+        "email": new_user.email,
+    }
 
-        return user
 
-    except Exception as e:
-        return {"error": str(e)}
-
-    finally:
-        db.close()
+@router.get("/user/{user_id}", response_model=UserRead)
+def get_user_by_id(user_id: int):
+    """Get user by id."""
+    user = find_user_by_id_service(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user

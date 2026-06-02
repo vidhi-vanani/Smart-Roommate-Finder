@@ -39,6 +39,18 @@ API Documentation (interactive): `http://localhost:8000/docs`
 
 ---
 
+## Backend Project Structure
+
+The backend is now organized into separate layers for routes, services, schemas, models, and database configuration:
+
+- `main.py` — FastAPI entrypoint and CORS setup
+- `db/database.py` — SQLAlchemy engine and session setup
+- `model/user.py` — SQLAlchemy `User` model
+- `schemas/user.py` — Pydantic request/response models
+- `services/security.py` — password hashing and verification helpers
+- `services/user_service.py` — user database operations and business logic
+- `routes/user.py` — HTTP routes that call service functions
+
 ## Database Schema Management
 
 ### Syncing Database After Schema Changes
@@ -185,6 +197,7 @@ CORS is configured in `main.py` to allow requests from:
 - http://localhost:3001
 - http://127.0.0.1:3000
 - http://127.0.0.1:3001
+- http://10.0.0.132:3000
 
 To add more origins, update the `allow_origins` list in `main.py`.
 

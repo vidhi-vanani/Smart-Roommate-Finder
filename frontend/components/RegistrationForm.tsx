@@ -106,10 +106,9 @@ export default function RegistrationForm() {
         confirmPassword: '',
         phoneNumber: '',
       });
-      
-      // TODO: Redirect to login page after successful registration
+
       setTimeout(() => {
-        // window.location.href = '/login';
+        window.location.href = '/login';
       }, 2000);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred. Please try again later.';
