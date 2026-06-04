@@ -1,6 +1,7 @@
 """
 User routes
 """
+from typing import List
 from fastapi import APIRouter, HTTPException, UploadFile, File
 import os
 import shutil
@@ -16,6 +17,7 @@ from schemas.user import (
 from services.security import verify_password
 from services.user_service import (
     create_user as create_user_service,
+    find_all_users,
     find_user_by_email,
     find_user_by_id as find_user_by_id_service,
     update_user_preferences as update_user_preferences_service,
@@ -128,6 +130,11 @@ def get_user_by_id(user_id: int):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+@router.get("/users", response_model=List[UserRead])
+def get_users():
+    """List all users."""
+    return find_all_users()
 
 @router.patch("/user/{user_id}/preferences", response_model=UserRead)
 def update_user_preferences(user_id: int, preferences: UserPreferencesUpdate):

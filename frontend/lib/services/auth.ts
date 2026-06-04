@@ -152,6 +152,23 @@ export async function getUserById(id: number): Promise<UserProfile> {
   }
 }
 
+export async function getAllUsers(): Promise<UserProfile[]> {
+  try {
+    const response = await fetch(API_ENDPOINTS.GET_USERS);
+    if (!response.ok) {
+      const errorData: ApiError = await response.json();
+      throw new Error(errorData.detail || errorData.message || 'Failed to fetch users');
+    }
+    const result: UserProfile[] = await response.json();
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while fetching users');
+  }
+}
+
 /**
  * Update user preferences and profile details
  * @param id - User ID

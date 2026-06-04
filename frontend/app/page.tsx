@@ -1,17 +1,226 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getAllUsers, getUserById, UserProfile } from "@/lib/services/auth";
+import API_BASE_URL from "@/lib/services/apiConfig";
+
+const dietOptions = [
+  'Vegetarian',
+  'Non-veg',
+  'Vegan',
+  'Pescatarian',
+  'No preference',
+];
+
+const allergyOptions = [
+  'Nuts',
+  'Gluten free',
+  'Soy',
+  'Wheat',
+  'Egg',
+  'Dairy',
+  'Shellfish',
+  'No allergies',
+  'Other',
+];
+
+const cleanlinessOptions = [
+  'Clean room once a week',
+  'Clean room twice a week',
+  'Clean shared spaces daily',
+  'Deep clean monthly',
+  'Flexible',
+];
+
+const socialInteractionOptions = [
+  'No interaction',
+  'Medium interaction',
+  'A lot of interaction',
+];
+
+const quietHourOptions = Array.from({ length: 24 }, (_, index) => ({
+  value: index,
+  label: index === 0 ? '12 AM' : index < 12 ? `${index} AM` : index === 12 ? '12 PM' : `${index - 12} PM`,
+}));
+
+function formatHour(value: string) {
+  if (!value) return 'Any';
+  const hour = Number(value);
+  if (Number.isNaN(hour)) return 'Any';
+  return hour === 0
+    ? '12 AM'
+    : hour < 12
+    ? `${hour} AM`
+    : hour === 12
+    ? '12 PM'
+    : `${hour - 12} PM`;
+}
 
 export default function Home() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
+  const [dietFilter, setDietFilter] = useState('');
+  const [occupationFilter, setOccupationFilter] = useState('');
+  const [smokingFilter, setSmokingFilter] = useState('');
+  const [allergiesFilter, setAllergiesFilter] = useState<string[]>([]);
+  const [zipCodeFilter, setZipCodeFilter] = useState('');
+  const [minBudgetFilter, setMinBudgetFilter] = useState('');
+  const [maxBudgetFilter, setMaxBudgetFilter] = useState('');
+  const [quietFromFilter, setQuietFromFilter] = useState('22');
+  const [quietToFilter, setQuietToFilter] = useState('7');
+  const [cleanlinessFilter, setCleanlinessFilter] = useState('');
+  const [socialFilter, setSocialFilter] = useState('');
+  const [interestsFilter, setInterestsFilter] = useState('');
 
   useEffect(() => {
-    const stored = window.localStorage.getItem('smart_roommate_photo_preview');
+    const currentUserId = Number(
+      window.localStorage.getItem('smart_roommate_user_id') || '0'
+    );
+    const previewKey = currentUserId
+      ? `smart_roommate_photo_preview_${currentUserId}`
+      : 'smart_roommate_photo_preview';
+    const stored = window.localStorage.getItem(previewKey);
     if (stored) {
       setPhotoPreview(stored);
     }
+
+    async function loadCurrentUserPhoto() {
+      if (!currentUserId) {
+        return;
+      }
+      try {
+        const currentUser = await getUserById(currentUserId);
+        if (currentUser.profile_photo) {
+          const fullUrl = currentUser.profile_photo.startsWith('http')
+            ? currentUser.profile_photo
+            : `${API_BASE_URL}${currentUser.profile_photo}`;
+          setPhotoPreview(fullUrl);
+          window.localStorage.setItem(previewKey, fullUrl);
+        }
+      } catch {
+        // ignore current user photo fetch errors for now
+      }
+    }
+
+    loadCurrentUserPhoto();
+
+    async function loadUsers() {
+      try {
+        const allUsers = await getAllUsers();
+        const currentUserId = Number(
+          window.localStorage.getItem('smart_roommate_user_id') || '0'
+        );
+        setUsers(allUsers.filter((user) => user.id !== currentUserId));
+      } catch (loadError) {
+        console.error('Unable to load users', loadError);
+      }
+    }
+
+    loadUsers();
   }, []);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const text = `${user.username} ${user.email} ${user.age ?? ''} ${user.diet ?? ''} ${user.occupation ?? ''}`.toLowerCase();
+      const termMatch = text.includes(searchTerm.trim().toLowerCase());
+      const dietMatch = dietFilter ? user.diet === dietFilter : true;
+      const occupationMatch = occupationFilter ? user.occupation === occupationFilter : true;
+      const smokingMatch = smokingFilter
+        ? String(user.smoking_preference) === smokingFilter
+        : true;
+      // Allergies filter: require that user has all selected allergies
+      let allergiesMatch = true;
+      if (Array.isArray(allergiesFilter) && allergiesFilter.length > 0) {
+        const requested = allergiesFilter.map((s) => s.trim().toLowerCase()).filter(Boolean);
+        const userAllergies = (user.allergies || []).map((a) => String(a).toLowerCase());
+        allergiesMatch = requested.every((req) => userAllergies.includes(req));
+      }
+
+      // Zip code
+      const zipMatch = zipCodeFilter ? Number(zipCodeFilter) === Number(user.zip_code) : true;
+
+      // Budget overlap check
+      const selectedMin = minBudgetFilter ? Number(minBudgetFilter) : null;
+      const selectedMax = maxBudgetFilter ? Number(maxBudgetFilter) : null;
+      let budgetMatch = true;
+      if (selectedMin !== null || selectedMax !== null) {
+        const uMin = user.min_budget ?? null;
+        const uMax = user.max_budget ?? null;
+        if (uMin === null && uMax === null) {
+          budgetMatch = true;
+        } else {
+          const sMin = selectedMin ?? Number.MIN_SAFE_INTEGER;
+          const sMax = selectedMax ?? Number.MAX_SAFE_INTEGER;
+          const userMin = uMin ?? Number.MIN_SAFE_INTEGER;
+          const userMax = uMax ?? Number.MAX_SAFE_INTEGER;
+          budgetMatch = !(userMax < sMin || userMin > sMax);
+        }
+      }
+
+      // Quiet hours overlap (handles wrap-around midnight)
+      let quietMatch = true;
+      if (quietFromFilter || quietToFilter) {
+        const sFrom = quietFromFilter ? Number(quietFromFilter) : 0;
+        const sTo = quietToFilter ? Number(quietToFilter) : 23;
+        const uFrom = user.quiet_hours_from ?? 0;
+        const uTo = user.quiet_hours_to ?? 23;
+
+        const ranges = (start: number, end: number) =>
+          start <= end ? [[start, end]] : [[start, 23], [0, end]];
+
+        const sRanges = ranges(sFrom, sTo);
+        const uRanges = ranges(uFrom, uTo);
+
+        quietMatch = sRanges.some((sr) =>
+          uRanges.some((ur) => !(ur[1] < sr[0] || sr[1] < ur[0]))
+        );
+      }
+
+      // Cleanliness and social
+      const cleanlinessMatch = cleanlinessFilter ? (user.cleanliness || '') === cleanlinessFilter : true;
+      const socialMatch = socialFilter ? (user.social_interaction || '') === socialFilter : true;
+
+      // Interests substring match (any of comma-separated)
+      let interestsMatch = true;
+      if (interestsFilter.trim()) {
+        const reqs = interestsFilter.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+        const uInterests = (user.interests || '').toLowerCase();
+        interestsMatch = reqs.every((r) => uInterests.includes(r));
+      }
+
+      return (
+        termMatch &&
+        dietMatch &&
+        occupationMatch &&
+        smokingMatch &&
+        allergiesMatch &&
+        zipMatch &&
+        budgetMatch &&
+        quietMatch &&
+        cleanlinessMatch &&
+        socialMatch &&
+        interestsMatch
+      );
+    });
+  }, [
+    users,
+    searchTerm,
+    dietFilter,
+    occupationFilter,
+    smokingFilter,
+    allergiesFilter,
+    zipCodeFilter,
+    minBudgetFilter,
+    maxBudgetFilter,
+    quietFromFilter,
+    quietToFilter,
+    cleanlinessFilter,
+    socialFilter,
+    interestsFilter,
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
@@ -69,7 +278,375 @@ export default function Home() {
       </nav>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-semibold">Home</h1>
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Home</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Browse roommate profiles and preferences.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setShowFilter((current) => !current)}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              Filters
+            </button>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="w-full min-w-[220px] rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {showFilter && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setShowFilter(false)}
+            />
+
+            <div className="relative w-full max-w-3xl rounded-t-2xl bg-white p-6 shadow-lg dark:bg-gray-900 md:rounded-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Filter preferences</h3>
+                <button
+                  aria-label="Close filters"
+                  onClick={() => setShowFilter(false)}
+                  className="rounded-md p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  ✕
+                </button>
+              </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Diet
+                  <select
+                    value={dietFilter}
+                    onChange={(event) => setDietFilter(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value="">All diets</option>
+                    <option value="Vegetarian">Vegetarian</option>
+                    <option value="Non-veg">Non-veg</option>
+                    <option value="Vegan">Vegan</option>
+                    <option value="Pescatarian">Pescatarian</option>
+                    <option value="No preference">No preference</option>
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Occupation
+                  <select
+                    value={occupationFilter}
+                    onChange={(event) => setOccupationFilter(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value="">All occupations</option>
+                    <option value="Student">Student</option>
+                    <option value="Worker">Worker</option>
+                    <option value="Remote worker">Remote worker</option>
+                    <option value="Freelancer">Freelancer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Smoking preference
+                  <select
+                    value={smokingFilter}
+                    onChange={(event) => setSmokingFilter(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value="">All smoking preferences</option>
+                    <option value="true">Smoker</option>
+                    <option value="false">Non-smoker</option>
+                  </select>
+                </label>
+                
+                <div className="col-span-full">
+                  <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">Allergies</span>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {allergyOptions.map((option) => (
+                      <label key={option} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={allergiesFilter.includes(option)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setAllergiesFilter((current) => {
+                              const next = new Set(current);
+                              if (option === 'No allergies') {
+                                if (checked) {
+                                  return ['No allergies'];
+                                }
+                                next.delete('No allergies');
+                              } else {
+                                if (checked) {
+                                  next.delete('No allergies');
+                                  next.add(option);
+                                } else {
+                                  next.delete(option);
+                                }
+                              }
+                              return Array.from(next);
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Zip code
+                  <input
+                    type="number"
+                    value={zipCodeFilter}
+                    onChange={(e) => setZipCodeFilter(e.target.value)}
+                    placeholder="e.g. 10001"
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Min budget: ${minBudgetFilter || '500'}
+                  <input
+                    type="range"
+                    min="0"
+                    max="3000"
+                    step="50"
+                    value={minBudgetFilter || '500'}
+                    onChange={(e) => setMinBudgetFilter(e.target.value)}
+                    className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg border-0 bg-gray-200 outline-none transition dark:bg-gray-700"
+                  />
+                  <div className="mt-1 flex justify-between text-xs text-gray-500">
+                    <span>$0</span>
+                    <span>$3,000</span>
+                  </div>
+                </label>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Max budget: ${maxBudgetFilter || '1500'}
+                  <input
+                    type="range"
+                    min="0"
+                    max="3000"
+                    step="50"
+                    value={maxBudgetFilter || '1500'}
+                    onChange={(e) => setMaxBudgetFilter(e.target.value)}
+                    className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg border-0 bg-gray-200 outline-none transition dark:bg-gray-700"
+                  />
+                  <div className="mt-1 flex justify-between text-xs text-gray-500">
+                    <span>$0</span>
+                    <span>$3,000</span>
+                  </div>
+                </label>
+
+                <div className="col-span-full rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quiet hours</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {formatHour(quietFromFilter)} – {formatHour(quietToFilter)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      From
+                      <select
+                        value={quietFromFilter}
+                        onChange={(e) => setQuietFromFilter(e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      >
+                        <option value="">Any</option>
+                        {quietHourOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      To
+                      <select
+                        value={quietToFilter}
+                        onChange={(e) => setQuietToFilter(e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      >
+                        <option value="">Any</option>
+                        {quietHourOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Cleanliness
+                  <select
+                    value={cleanlinessFilter}
+                    onChange={(e) => setCleanlinessFilter(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value="">Select cleanliness</option>
+                    {cleanlinessOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Social interaction
+                  <select
+                    value={socialFilter}
+                    onChange={(e) => setSocialFilter(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value="">Select social interaction</option>
+                    {socialInteractionOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Interests (comma separated)
+                  <input
+                    value={interestsFilter}
+                    onChange={(e) => setInterestsFilter(e.target.value)}
+                    placeholder="e.g. gaming, cooking"
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDietFilter('');
+                    setOccupationFilter('');
+                    setSmokingFilter('');
+                    setAllergiesFilter([]);
+                    setZipCodeFilter('');
+                    setMinBudgetFilter('');
+                    setMaxBudgetFilter('');
+                    setQuietFromFilter('22');
+                    setQuietToFilter('7');
+                    setCleanlinessFilter('');
+                    setSocialFilter('');
+                    setInterestsFilter('');
+                  }}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFilter(false)}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Set preferences
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-5">
+          {filteredUsers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+              No roommate profiles found.
+            </div>
+          ) : (
+            filteredUsers.map((user) => (
+              <div key={user.id} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
+                  <div className="shrink-0">
+                    <div className="h-24 w-24 overflow-hidden rounded-full border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+                      {user.profile_photo ? (
+                        <img
+                          src={user.profile_photo.startsWith('http') ? user.profile_photo : `${API_BASE_URL}${user.profile_photo}`}
+                          alt={`${user.username} profile`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-gray-700 dark:text-gray-300">
+                          {user.username
+                            .split(' ')
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((part) => part[0]?.toUpperCase())
+                            .join('')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{user.username}</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                      Age {user.age ?? 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-700">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
+                      <span className="font-semibold">Diet:</span> {user.diet || 'Not specified'}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
+                      <span className="font-semibold">Cleanliness:</span> {user.cleanliness || 'Not specified'}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
+                      <span className="font-semibold">Social:</span> {user.social_interaction || 'Not specified'}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
+                      <span className="font-semibold">Occupation:</span> {user.occupation || 'Not specified'}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
+                      <span className="font-semibold">Smoking:</span> {user.smoking_preference === true ? 'Smoker' : user.smoking_preference === false ? 'Non-smoker' : 'Not specified'}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200">
+                      <span className="font-semibold">Location:</span> {user.city || 'N/A'}{user.state ? `, ${user.state}` : ''}{user.country ? `, ${user.country}` : ''}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200 sm:col-span-2 lg:col-span-1">
+                      <span className="font-semibold">Interests:</span> {user.interests || 'Not specified'}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200 sm:col-span-2 lg:col-span-1">
+                      <span className="font-semibold">Allergies:</span> {user.allergies?.join(', ') || 'Not specified'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </main>
     </div>
   );

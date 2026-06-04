@@ -27,6 +27,14 @@ def find_user_by_id(user_id: int) -> Optional[User]:
         db.close()
 
 
+def find_all_users() -> List[User]:
+    db = _open_session()
+    try:
+        return db.query(User).all()
+    finally:
+        db.close()
+
+
 def create_user(
     username: str,
     email: str,
