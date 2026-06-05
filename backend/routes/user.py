@@ -8,6 +8,8 @@ import shutil
 from sqlalchemy.exc import IntegrityError
 
 from schemas.user import (
+    RoommateRequestCreate,
+    RoommateRequestRead,
     UserCreate,
     UserLogin,
     UserPreferencesUpdate,
@@ -16,15 +18,21 @@ from schemas.user import (
 )
 from services.security import verify_password
 from services.user_service import (
+    create_roommate_request,
     create_user as create_user_service,
     find_all_users,
     find_user_by_email,
     find_user_by_id as find_user_by_id_service,
+    get_received_roommate_requests,
+    get_roommate_connections,
+    get_sent_roommate_requests,
+    update_roommate_request_status,
     update_user_preferences as update_user_preferences_service,
 )
 
 router = APIRouter()
 
+@router.post("/users", response_model=UserResponse)
 @router.post("/users/", response_model=UserResponse)
 def register_user(user_data: UserCreate):
     """Register a new user."""
@@ -57,10 +65,10 @@ def register_user(user_data: UserCreate):
             interests=user_data.interests,
             smoking_preference=user_data.smoking_preference,
         )
-    except IntegrityError:
-        raise HTTPException(status_code=400, detail="User with this email already exists")
+    except IntegrityError as exc:
+        raise HTTPException(status_code=400, detail="User with this email already exists") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "message": "User registered successfully",
@@ -112,10 +120,10 @@ def create_user(user_data: UserCreate):
             interests=user_data.interests,
             smoking_preference=user_data.smoking_preference,
         )
-    except IntegrityError:
-        raise HTTPException(status_code=400, detail="User with this email already exists")
+    except IntegrityError as exc:
+        raise HTTPException(status_code=400, detail="User with this email already exists") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "message": "User created successfully",
@@ -144,6 +152,63 @@ def update_user_preferences(user_id: int, preferences: UserPreferencesUpdate):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.post("/requests/", response_model=RoommateRequestRead)
+def send_roommate_request(request_data: RoommateRequestCreate):
+    """Send a roommate request from one user to another."""
+    try:
+        request_record = create_roommate_request(
+            sender_id=request_data.sender_id,
+            receiver_id=request_data.receiver_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return request_record
+
+
+@router.get("/requests/sent/{user_id}", response_model=List[RoommateRequestRead])
+def get_sent_requests(user_id: int):
+    """Get requests sent by a user."""
+    return get_sent_roommate_requests(user_id)
+
+
+@router.get("/requests/received/{user_id}", response_model=List[RoommateRequestRead])
+def get_received_requests(user_id: int):
+    """Get requests received by a user."""
+    return get_received_roommate_requests(user_id)
+
+
+@router.get("/requests/connections/{user_id}", response_model=List[RoommateRequestRead])
+def get_connections(user_id: int):
+    """Get accepted roommate connections for a user."""
+    return get_roommate_connections(user_id)
+
+
+@router.post("/requests/{request_id}/accept", response_model=RoommateRequestRead)
+def accept_request(request_id: int, receiver_id: int):
+    """Accept a roommate request."""
+    try:
+        request_record = update_roommate_request_status(request_id, receiver_id, "accepted")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not request_record:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return request_record
+
+
+@router.post("/requests/{request_id}/reject", response_model=RoommateRequestRead)
+def reject_request(request_id: int, receiver_id: int):
+    """Reject a roommate request."""
+    try:
+        request_record = update_roommate_request_status(request_id, receiver_id, "rejected")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not request_record:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return request_record
 
 
 @router.post("/user/{user_id}/photo", response_model=UserRead)

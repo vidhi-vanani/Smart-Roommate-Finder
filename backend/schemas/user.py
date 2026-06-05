@@ -1,5 +1,6 @@
 """
 User schemas"""
+from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -136,3 +137,19 @@ class UserPreferencesUpdate(UserPreferencesMixin):
     zip_code: Optional[int] = None
     state: Optional[str] = None
     country: Optional[str] = None
+
+
+class RoommateRequestCreate(BaseModel):
+    sender_id: int
+    receiver_id: int
+
+
+class RoommateRequestRead(BaseModel):
+    id: int
+    sender_id: int
+    receiver_id: int
+    status: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

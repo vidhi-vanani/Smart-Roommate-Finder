@@ -1,9 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { getAllUsers, getUserById, UserProfile } from "@/lib/services/auth";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getAllUsers,
+  getUserById,
+  sendRoommateRequest,
+  getSentRequests,
+  getReceivedRequests,
+  getConnections,
+  RoommateRequest,
+  UserProfile,
+} from "@/lib/services/auth";
 import API_BASE_URL from "@/lib/services/apiConfig";
+import NotificationMenu from "@/components/notifications/NotificationMenu";
 
 const dietOptions = [
   'Vegetarian',
@@ -57,6 +67,25 @@ function formatHour(value: string) {
     : `${hour - 12} PM`;
 }
 
+function getStoredCurrentUserId() {
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+  return Number(window.localStorage.getItem('smart_roommate_user_id') || '0');
+}
+
+function getStoredPhotoPreview() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const userId = getStoredCurrentUserId();
+  const previewKey = userId
+    ? `smart_roommate_photo_preview_${userId}`
+    : 'smart_roommate_photo_preview';
+  return window.localStorage.getItem(previewKey);
+}
+
 export default function Home() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -74,25 +103,42 @@ export default function Home() {
   const [cleanlinessFilter, setCleanlinessFilter] = useState('');
   const [socialFilter, setSocialFilter] = useState('');
   const [interestsFilter, setInterestsFilter] = useState('');
+  const [currentUserId] = useState(getStoredCurrentUserId);
+  const [sentRequests, setSentRequests] = useState<RoommateRequest[]>([]);
+  const [receivedRequests, setReceivedRequests] = useState<RoommateRequest[]>([]);
+  const [connections, setConnections] = useState<RoommateRequest[]>([]);
+  const [requestMessage, setRequestMessage] = useState<string | null>(null);
+  const [sendingRequestIds, setSendingRequestIds] = useState<number[]>([]);
+  const sendingRequestIdsRef = useRef(new Set<number>());
+
+  const refreshRequests = useCallback(async (userId: number) => {
+    try {
+      const [sent, received, connected] = await Promise.all([
+        getSentRequests(userId),
+        getReceivedRequests(userId),
+        getConnections(userId),
+      ]);
+      setSentRequests(sent);
+      setReceivedRequests(received);
+      setConnections(connected);
+    } catch (loadError) {
+      console.error('Unable to load request data', loadError);
+    }
+  }, []);
 
   useEffect(() => {
-    const currentUserId = Number(
-      window.localStorage.getItem('smart_roommate_user_id') || '0'
-    );
-    const previewKey = currentUserId
-      ? `smart_roommate_photo_preview_${currentUserId}`
+    const storedCurrentUserId = currentUserId;
+
+    const previewKey = storedCurrentUserId
+      ? `smart_roommate_photo_preview_${storedCurrentUserId}`
       : 'smart_roommate_photo_preview';
-    const stored = window.localStorage.getItem(previewKey);
-    if (stored) {
-      setPhotoPreview(stored);
-    }
 
     async function loadCurrentUserPhoto() {
-      if (!currentUserId) {
+      if (!storedCurrentUserId) {
         return;
       }
       try {
-        const currentUser = await getUserById(currentUserId);
+        const currentUser = await getUserById(storedCurrentUserId);
         if (currentUser.profile_photo) {
           const fullUrl = currentUser.profile_photo.startsWith('http')
             ? currentUser.profile_photo
@@ -105,22 +151,21 @@ export default function Home() {
       }
     }
 
-    loadCurrentUserPhoto();
-
     async function loadUsers() {
       try {
         const allUsers = await getAllUsers();
-        const currentUserId = Number(
-          window.localStorage.getItem('smart_roommate_user_id') || '0'
-        );
-        setUsers(allUsers.filter((user) => user.id !== currentUserId));
+        setUsers(allUsers.filter((user) => user.id !== storedCurrentUserId));
+        if (storedCurrentUserId) {
+          await refreshRequests(storedCurrentUserId);
+        }
       } catch (loadError) {
         console.error('Unable to load users', loadError);
       }
     }
 
+    loadCurrentUserPhoto();
     loadUsers();
-  }, []);
+  }, [currentUserId, refreshRequests]);
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -222,6 +267,74 @@ export default function Home() {
     interestsFilter,
   ]);
 
+  async function handleSendRequest(receiverId: number) {
+    if (!currentUserId) {
+      setRequestMessage('Please log in to send a request.');
+      return;
+    }
+
+    if (sendingRequestIdsRef.current.has(receiverId)) {
+      return;
+    }
+
+    const user = users.find((profile) => profile.id === receiverId);
+    if (user && isRequestButtonDisabled(user)) {
+      setRequestMessage(getRequestButtonLabel(user));
+      return;
+    }
+
+    sendingRequestIdsRef.current.add(receiverId);
+    setSendingRequestIds((ids) => [...ids, receiverId]);
+
+    try {
+      setRequestMessage(null);
+      await sendRoommateRequest(currentUserId, receiverId);
+      await refreshRequests(currentUserId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to send request.';
+      if (message === 'A request is already pending') {
+        await refreshRequests(currentUserId);
+        setRequestMessage('Request is already pending.');
+      } else {
+        setRequestMessage(message);
+      }
+    } finally {
+      sendingRequestIdsRef.current.delete(receiverId);
+      setSendingRequestIds((ids) => ids.filter((id) => id !== receiverId));
+    }
+  }
+
+  function getRequestButtonLabel(user: UserProfile) {
+    const isConnected = connections.some(
+      (request) => request.status === 'accepted' && (request.receiver_id === user.id || request.sender_id === user.id)
+    );
+
+    if (isConnected) {
+      return 'Connected';
+    }
+
+    if (sentRequests.some((request) => request.receiver_id === user.id && request.status === 'pending')) {
+      return 'Request sent';
+    }
+
+    if (receivedRequests.some((request) => request.sender_id === user.id && request.status === 'pending')) {
+      return 'Pending response';
+    }
+
+    return 'Send request';
+  }
+
+  function isRequestButtonDisabled(user: UserProfile) {
+    return (
+      connections.some(
+        (request) => request.status === 'accepted' && (request.receiver_id === user.id || request.sender_id === user.id)
+      ) ||
+      sentRequests.some((request) => request.receiver_id === user.id && request.status === 'pending') ||
+      receivedRequests.some((request) => request.sender_id === user.id && request.status === 'pending') ||
+      sendingRequestIds.includes(user.id)
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
       <nav className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
@@ -230,50 +343,61 @@ export default function Home() {
             Smart Roommate Finder
           </Link>
 
-          <details className="group relative">
-            <summary
-              aria-label="Open profile menu"
-              className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-gray-700 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&::-webkit-details-marker]:hidden"
-            >
-              {photoPreview ? (
-                <img
-                  src={photoPreview}
-                  alt="Profile photo"
-                  className="h-full w-full rounded-full object-cover"
-                />
-              ) : (
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a8.25 8.25 0 0 1 15 0"
-                  />
-                </svg>
-              )}
-            </summary>
+          <div className="flex items-center gap-5">
+            <NotificationMenu
+              users={users}
+              sentRequests={sentRequests}
+              receivedRequests={receivedRequests}
+              connections={connections}
+              currentUserId={currentUserId}
+              onRequestsChanged={() => refreshRequests(currentUserId)}
+            />
 
-            <div className="absolute right-0 z-10 mt-3 w-44 rounded-md border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-              <Link
-                href="/preferences"
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+            <details className="group relative">
+              <summary
+                aria-label="Open profile menu"
+                className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-gray-700 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&::-webkit-details-marker]:hidden"
               >
-                Preference
-              </Link>
-              <Link
-                href="/login"
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
-              >
-                Logout
-              </Link>
-            </div>
-          </details>
+                {photoPreview ? (
+                  <img
+                    src={photoPreview}
+                    alt="Profile photo"
+                    className="h-full w-full rounded-full object-cover"
+                  />
+                ) : (
+                  <svg
+                    aria-hidden="true"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a8.25 8.25 0 0 1 15 0"
+                    />
+                  </svg>
+                )}
+              </summary>
+
+              <div className="absolute right-0 z-10 mt-3 w-44 rounded-md border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                <Link
+                  href="/preferences"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Preference
+                </Link>
+                <Link
+                  href="/login"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Logout
+                </Link>
+              </div>
+            </details>
+          </div>
         </div>
       </nav>
 
@@ -284,9 +408,14 @@ export default function Home() {
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               Browse roommate profiles and preferences.
             </p>
+            {requestMessage ? (
+              <p className="mt-2 rounded-lg border border-gray-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+                {requestMessage}
+              </p>
+            ) : null}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 items-center">
             <button
               type="button"
               onClick={() => setShowFilter((current) => !current)}
@@ -641,6 +770,22 @@ export default function Home() {
                     <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-700 dark:bg-gray-950 dark:text-gray-200 sm:col-span-2 lg:col-span-1">
                       <span className="font-semibold">Allergies:</span> {user.allergies?.join(', ') || 'Not specified'}
                     </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Ready to reach out?</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSendRequest(user.id)}
+                      disabled={isRequestButtonDisabled(user)}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                        isRequestButtonDisabled(user)
+                          ? 'cursor-not-allowed bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {getRequestButtonLabel(user)}
+                    </button>
                   </div>
                 </div>
               </div>

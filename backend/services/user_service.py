@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from db.database import SessionLocal
 from model.user import User
+from model.request import RoommateRequest
 from services.security import hash_password
 
 
@@ -117,5 +118,97 @@ def update_user_preferences(user_id: int, preferences: dict) -> Optional[User]:
         db.commit()
         db.refresh(user)
         return user
+    finally:
+        db.close()
+
+
+def _get_request_session():
+    return SessionLocal()
+
+
+def create_roommate_request(sender_id: int, receiver_id: int) -> RoommateRequest:
+    if sender_id == receiver_id:
+        raise ValueError("Cannot send a roommate request to yourself")
+
+    db = _get_request_session()
+    try:
+        existing = (
+            db.query(RoommateRequest)
+            .filter(
+                RoommateRequest.sender_id == sender_id,
+                RoommateRequest.receiver_id == receiver_id,
+            )
+            .first()
+        )
+
+        if existing:
+            if existing.status == "pending":
+                raise ValueError("A request is already pending")
+            if existing.status == "accepted":
+                raise ValueError("You are already connected")
+            existing.status = "pending"
+            db.commit()
+            db.refresh(existing)
+            return existing
+
+        request_record = RoommateRequest(
+            sender_id=sender_id,
+            receiver_id=receiver_id,
+            status="pending",
+        )
+        db.add(request_record)
+        db.commit()
+        db.refresh(request_record)
+        return request_record
+    finally:
+        db.close()
+
+
+def get_sent_roommate_requests(user_id: int) -> List[RoommateRequest]:
+    db = _get_request_session()
+    try:
+        return db.query(RoommateRequest).filter(RoommateRequest.sender_id == user_id).all()
+    finally:
+        db.close()
+
+
+def get_received_roommate_requests(user_id: int) -> List[RoommateRequest]:
+    db = _get_request_session()
+    try:
+        return db.query(RoommateRequest).filter(RoommateRequest.receiver_id == user_id).all()
+    finally:
+        db.close()
+
+
+def get_roommate_connections(user_id: int) -> List[RoommateRequest]:
+    db = _get_request_session()
+    try:
+        return (
+            db.query(RoommateRequest)
+            .filter(
+                RoommateRequest.status == "accepted",
+                (RoommateRequest.sender_id == user_id) | (RoommateRequest.receiver_id == user_id),
+            )
+            .all()
+        )
+    finally:
+        db.close()
+
+
+def update_roommate_request_status(request_id: int, receiver_id: int, new_status: str) -> Optional[RoommateRequest]:
+    db = _get_request_session()
+    try:
+        request_record = db.query(RoommateRequest).filter(RoommateRequest.id == request_id).first()
+        if not request_record:
+            return None
+        if request_record.receiver_id != receiver_id:
+            raise ValueError("Only the request recipient can update request status")
+        if request_record.status != "pending":
+            raise ValueError("Only pending requests can be updated")
+
+        request_record.status = new_status
+        db.commit()
+        db.refresh(request_record)
+        return request_record
     finally:
         db.close()

@@ -62,9 +62,29 @@ export interface PreferenceUpdateData {
   smoking_preference?: boolean | null;
 }
 
+export interface RoommateRequest {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface ApiError {
   detail?: string;
   message?: string;
+}
+
+async function getApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const errorData: ApiError = await response.json();
+    return errorData.detail || errorData.message || fallbackMessage;
+  }
+
+  const errorText = await response.text();
+  return errorText || fallbackMessage;
 }
 
 /**
@@ -200,6 +220,144 @@ export async function updateUserPreferences(
       throw new Error(error.message);
     }
     throw new Error('An unexpected error occurred while updating preferences');
+  }
+}
+
+export async function sendRoommateRequest(
+  senderId: number,
+  receiverId: number
+): Promise<RoommateRequest> {
+  const url = API_ENDPOINTS.SEND_REQUEST;
+  console.debug('sendRoommateRequest', url, { senderId, receiverId });
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sender_id: senderId, receiver_id: receiverId }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to send request'));
+    }
+
+    const result: RoommateRequest = await response.json();
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while sending roommate request');
+  }
+}
+
+export async function getSentRequests(userId: number): Promise<RoommateRequest[]> {
+  const url = API_ENDPOINTS.SENT_REQUESTS(userId);
+  console.debug('getSentRequests', url);
+
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to load sent requests'));
+    }
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('getSentRequests failed', error);
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while loading sent requests');
+  }
+}
+
+export async function getReceivedRequests(userId: number): Promise<RoommateRequest[]> {
+  const url = API_ENDPOINTS.RECEIVED_REQUESTS(userId);
+  console.debug('getReceivedRequests', url);
+
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to load received requests'));
+    }
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('getReceivedRequests failed', error);
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while loading received requests');
+  }
+}
+
+export async function getConnections(userId: number): Promise<RoommateRequest[]> {
+  const url = API_ENDPOINTS.CONNECTIONS(userId);
+  console.debug('getConnections', url);
+
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to load connections'));
+    }
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('getConnections failed', error);
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while loading connections');
+  }
+}
+
+export async function acceptRoommateRequest(
+  requestId: number,
+  receiverId: number
+): Promise<RoommateRequest> {
+  const url = `${API_ENDPOINTS.ACCEPT_REQUEST(requestId)}?receiver_id=${receiverId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to accept request'));
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while accepting roommate request');
+  }
+}
+
+export async function rejectRoommateRequest(
+  requestId: number,
+  receiverId: number
+): Promise<RoommateRequest> {
+  const url = `${API_ENDPOINTS.REJECT_REQUEST(requestId)}?receiver_id=${receiverId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to reject request'));
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while rejecting roommate request');
   }
 }
 

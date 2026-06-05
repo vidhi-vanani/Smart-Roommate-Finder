@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import engine, Base
 from db.schema_sync import sync_user_preference_columns
+import importlib
+importlib.import_module("model.request")
 from routes.user import router as user_router
 from fastapi.staticfiles import StaticFiles
 

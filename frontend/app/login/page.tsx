@@ -1,4 +1,4 @@
-import LoginForm from '@/components/LoginForm';
+import LoginForm from '@/components/login/LoginForm';
 
 export default function LoginPage() {
   return (
@@ -15,6 +15,12 @@ export default function LoginPage() {
 
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 border border-gray-200 dark:border-gray-700">
           <LoginForm />
+          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-300">
+            New here?{' '}
+            <a href="/register" className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+              Create an account
+            </a>
+          </div>
         </div>
       </div>
     </div>
