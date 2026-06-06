@@ -39,6 +39,52 @@ API Documentation (interactive): `http://localhost:8000/docs`
 
 ---
 
+## Generated Development Data
+
+Use the generated data seed script to reset the local development database and load 500 sample users with matches and roommate requests.
+
+### Source CSV
+
+The seed script reads from:
+
+```text
+/Users/vidhivanani/Downloads/Samle data generation/users_output.csv
+```
+
+### Seed Script
+
+The script is located at:
+
+```text
+backend/scripts/seed_generated_users.py
+```
+
+### What It Does
+
+- Deletes existing records from `messages`, `matches`, `roommate_requests`, and `users`.
+- Inserts 500 users from the generated CSV.
+- Hashes each CSV password before saving it.
+- Uses `first_name + last_name` as the `users.username` value.
+- Uses CSV `state_code` for the `users.state` value.
+- Copies profile photos from the CSV image path into `backend/static/uploads`.
+- Stores copied photo URLs as `/static/uploads/<filename>.jpg` in `users.profile_photo`.
+- Creates 2 directed matches for each user.
+- Creates accepted, pending, and rejected roommate requests.
+
+### Run the Seed Script
+
+From the `backend` directory:
+
+```bash
+python3 scripts/seed_generated_users.py --confirm-delete
+```
+
+⚠️ **Warning:** This deletes existing development records from `users`, `matches`, `roommate_requests`, and `messages`.
+
+The script will not run unless `--confirm-delete` is provided.
+
+---
+
 ## Backend Project Structure
 
 The backend is now organized into separate layers for routes, services, schemas, models, and database configuration:
