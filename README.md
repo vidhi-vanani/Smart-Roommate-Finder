@@ -1,5 +1,8 @@
 # Smart Roommate Finder
 
+
+
+
 Smart Roommate Finder is a full-stack web application that helps users find compatible roommates based on personal details, lifestyle preferences, housing needs, and communication between matched users.
 
 The project includes a **Next.js frontend**, a **FastAPI backend**, and a **PostgreSQL database**.
