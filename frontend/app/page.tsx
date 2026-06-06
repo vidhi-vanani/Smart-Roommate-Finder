@@ -14,6 +14,10 @@ import {
 } from "@/lib/services/auth";
 import API_BASE_URL from "@/lib/services/apiConfig";
 import NotificationMenu from "@/components/notifications/NotificationMenu";
+import {
+  calculateCosineCompatibility,
+  sortUsersByCompatibility,
+} from "@/lib/compatibility";
 
 const dietOptions = [
   'Vegetarian',
@@ -141,6 +145,7 @@ function getStoredPhotoPreview() {
 
 export default function Home() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilter, setShowFilter] = useState(false);
@@ -195,6 +200,7 @@ export default function Home() {
       }
       try {
         const currentUser = await getUserById(storedCurrentUserId);
+        setCurrentUserProfile(currentUser);
         if (currentUser.profile_photo) {
           const fullUrl = currentUser.profile_photo.startsWith('http')
             ? currentUser.profile_photo
@@ -253,7 +259,7 @@ export default function Home() {
   }, [isProfileMenuOpen]);
 
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    const matchingUsers = users.filter((user) => {
       const text = `${user.username} ${user.email} ${user.age ?? ''} ${user.diet ?? ''} ${user.occupation ?? ''}`.toLowerCase();
       const termMatch = text.includes(searchTerm.trim().toLowerCase());
       const dietMatch = dietFilter ? user.diet === dietFilter : true;
@@ -338,8 +344,11 @@ export default function Home() {
         interestsMatch
       );
     });
+
+    return sortUsersByCompatibility(currentUserProfile, matchingUsers);
   }, [
     users,
+    currentUserProfile,
     searchTerm,
     dietFilter,
     occupationFilter,
@@ -860,7 +869,10 @@ export default function Home() {
               No roommate profiles found.
             </div>
           ) : (
-            filteredUsers.map((user) => (
+            filteredUsers.map((user) => {
+              const compatibilityScore = calculateCosineCompatibility(currentUserProfile, user);
+
+              return (
               <div key={user.id} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
                 <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
                   <div className="shrink-0">
@@ -889,6 +901,17 @@ export default function Home() {
                       <div>
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{user.username}</h2>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                      </div>
+                      <div
+                        className="mt-3 flex h-20 w-20 shrink-0 items-center justify-center rounded-full sm:mt-0"
+                        style={{
+                          background: `conic-gradient(#2563eb ${compatibilityScore ?? 0}%, #e5e7eb 0)`,
+                        }}
+                        aria-label={compatibilityScore === null ? 'Compatibility not available' : `${compatibilityScore}% compatibility`}
+                      >
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-lg font-bold text-blue-700 dark:bg-gray-900 dark:text-blue-300">
+                          {compatibilityScore === null ? 'N/A' : `${compatibilityScore}%`}
+                        </div>
                       </div>
                     </div>
 
@@ -943,7 +966,8 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </main>
