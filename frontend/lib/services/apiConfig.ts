@@ -17,6 +17,10 @@ export const API_ENDPOINTS = {
   CONNECTIONS: (id: number) => `${API_BASE_URL}/requests/connections/${id}`,
   ACCEPT_REQUEST: (requestId: number) => `${API_BASE_URL}/requests/${requestId}/accept`,
   REJECT_REQUEST: (requestId: number) => `${API_BASE_URL}/requests/${requestId}/reject`,
+  MESSAGES: (currentUserId: number, otherUserId: number) => `${API_BASE_URL}/messages/${currentUserId}/${otherUserId}`,
+  SEND_MESSAGE: `${API_BASE_URL}/messages`,
+  UNREAD_MESSAGES: (userId: number) => `${API_BASE_URL}/messages/unread/${userId}`,
+  MARK_MESSAGES_READ: (currentUserId: number, otherUserId: number) => `${API_BASE_URL}/messages/read/${currentUserId}/${otherUserId}`,
   // Add more endpoints as needed
 };
 

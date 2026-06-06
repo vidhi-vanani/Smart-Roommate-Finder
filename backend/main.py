@@ -5,10 +5,12 @@ Main file
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.database import engine, Base
-from db.schema_sync import sync_user_preference_columns
+from db.schema_sync import sync_message_columns, sync_user_preference_columns
 import importlib
 importlib.import_module("model.request")
+importlib.import_module("model.message")
 from routes.user import router as user_router
+from routes.message import router as message_router
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
@@ -31,8 +33,10 @@ app.add_middleware(
 
 Base.metadata.create_all(bind=engine)
 sync_user_preference_columns()
+sync_message_columns()
 
 # Serve uploaded static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(user_router)
+app.include_router(message_router)

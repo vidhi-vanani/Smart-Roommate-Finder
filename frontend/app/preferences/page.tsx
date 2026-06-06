@@ -160,10 +160,42 @@ export default function PreferencesPage() {
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = event.target;
-    setFormData((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setFormData((current) => {
+      if (name === 'min_budget') {
+        const nextMinBudget = Math.min(Number(value), 4900);
+        const currentMaxBudget = Number(current.max_budget);
+        const minimumMaxBudget = nextMinBudget + 100;
+
+        return {
+          ...current,
+          min_budget: String(nextMinBudget),
+          max_budget:
+            minimumMaxBudget > currentMaxBudget
+              ? String(minimumMaxBudget)
+              : current.max_budget,
+        };
+      }
+
+      if (name === 'max_budget') {
+        const nextMaxBudget = Number(value);
+        const currentMinBudget = Number(current.min_budget);
+        const maximumMinBudget = nextMaxBudget - 100;
+
+        return {
+          ...current,
+          min_budget:
+            maximumMinBudget < currentMinBudget
+              ? String(maximumMinBudget)
+              : current.min_budget,
+          max_budget: value,
+        };
+      }
+
+      return {
+        ...current,
+        [name]: value,
+      };
+    });
   };
 
   const handleAllergyToggle = (

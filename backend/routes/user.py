@@ -76,6 +76,7 @@ def register_user(user_data: UserCreate):
         "email": new_user.email,
     }
 
+@router.post("/login", response_model=UserResponse)
 @router.post("/login/", response_model=UserResponse)
 def login_user(user_data: UserLogin):
     """Authenticate a user by email and password."""

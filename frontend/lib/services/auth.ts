@@ -71,6 +71,20 @@ export interface RoommateRequest {
   updated_at?: string | null;
 }
 
+export interface Message {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  content: string;
+  is_read: boolean;
+  created_at?: string | null;
+}
+
+export interface UnreadMessageCount {
+  user_id: number;
+  unread_count: number;
+}
+
 export interface ApiError {
   detail?: string;
   message?: string;
@@ -358,6 +372,97 @@ export async function rejectRoommateRequest(
       throw new Error(error.message);
     }
     throw new Error('An unexpected error occurred while rejecting roommate request');
+  }
+}
+
+export async function getMessages(
+  currentUserId: number,
+  otherUserId: number
+): Promise<Message[]> {
+  try {
+    const response = await fetch(API_ENDPOINTS.MESSAGES(currentUserId, otherUserId), {
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to load messages'));
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while loading messages');
+  }
+}
+
+export async function sendMessage(
+  senderId: number,
+  receiverId: number,
+  content: string
+): Promise<Message> {
+  try {
+    const response = await fetch(API_ENDPOINTS.SEND_MESSAGE, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        content,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to send message'));
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while sending message');
+  }
+}
+
+export async function getUnreadMessageCounts(userId: number): Promise<UnreadMessageCount[]> {
+  try {
+    const response = await fetch(API_ENDPOINTS.UNREAD_MESSAGES(userId), {
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to load unread messages'));
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while loading unread messages');
+  }
+}
+
+export async function markMessagesRead(currentUserId: number, otherUserId: number): Promise<void> {
+  try {
+    const response = await fetch(API_ENDPOINTS.MARK_MESSAGES_READ(currentUserId, otherUserId), {
+      method: 'POST',
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(await getApiErrorMessage(response, 'Failed to mark messages as read'));
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while marking messages as read');
   }
 }
 

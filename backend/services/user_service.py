@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from db.database import SessionLocal
 from model.user import User
 from model.request import RoommateRequest
+from model.message import Message
 from services.security import hash_password
 
 

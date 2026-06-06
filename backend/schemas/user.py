@@ -44,6 +44,24 @@ class UserPreferencesMixin(BaseModel):
 
         return values
 
+    @model_validator(mode="after")
+    def validate_budget_range(self):
+        if (
+            self.min_budget is not None
+            and self.max_budget is not None
+            and self.max_budget - self.min_budget < 100
+        ):
+            raise ValueError("Maximum budget must be at least $100 greater than minimum budget")
+
+        if (
+            self.quiet_hours_from is not None
+            and self.quiet_hours_to is not None
+            and self.quiet_hours_from == self.quiet_hours_to
+        ):
+            raise ValueError("Quiet hours from and to cannot be the same")
+
+        return self
+
 
 class UserBase(UserPreferencesMixin):
     """

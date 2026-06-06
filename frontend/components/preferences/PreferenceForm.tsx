@@ -45,6 +45,59 @@ const socialInteractionOptions = [
   'A lot of interaction',
 ];
 
+const stateOptions = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+];
+
 const hourOptions = [
   { value: 0, label: '12 AM' },
   { value: 1, label: '1 AM' },
@@ -335,13 +388,19 @@ export default function PreferenceForm({
           </Field>
 
           <Field label="State">
-            <input
+            <select
               name="state"
-              placeholder="NY"
               value={formData.state}
               onChange={onInputChange}
               className={inputClass}
-            />
+            >
+              <option value="">Select state</option>
+              {stateOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <Field label="Country">
@@ -378,7 +437,7 @@ export default function PreferenceForm({
                 name="min_budget"
                 type="range"
                 min="0"
-                max="5000"
+                max="4900"
                 step="50"
                 value={formData.min_budget}
                 onChange={onInputChange}
@@ -414,11 +473,13 @@ export default function PreferenceForm({
                 onChange={onInputChange}
                 className={inputClass}
               >
-                {hourOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {hourOptions
+                  .filter((option) => String(option.value) !== formData.quiet_hours_to)
+                  .map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
               </select>
             </Field>
 
@@ -429,11 +490,13 @@ export default function PreferenceForm({
                 onChange={onInputChange}
                 className={inputClass}
               >
-                {hourOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {hourOptions
+                  .filter((option) => String(option.value) !== formData.quiet_hours_from)
+                  .map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
               </select>
             </Field>
 

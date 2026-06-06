@@ -18,6 +18,10 @@ USER_PREFERENCE_COLUMNS = {
     "profile_photo": "VARCHAR",
 }
 
+MESSAGE_COLUMNS = {
+    "is_read": "BOOLEAN DEFAULT FALSE NOT NULL",
+}
+
 
 def sync_user_preference_columns():
     """
@@ -41,4 +45,26 @@ def sync_user_preference_columns():
         for column_name, column_type in missing_columns.items():
             connection.execute(
                 text(f"ALTER TABLE users ADD COLUMN {column_name} {column_type}")
+            )
+
+
+def sync_message_columns():
+    inspector = inspect(engine)
+    if "messages" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("messages")}
+    missing_columns = {
+        column_name: column_type
+        for column_name, column_type in MESSAGE_COLUMNS.items()
+        if column_name not in existing_columns
+    }
+
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns.items():
+            connection.execute(
+                text(f"ALTER TABLE messages ADD COLUMN {column_name} {column_type}")
             )

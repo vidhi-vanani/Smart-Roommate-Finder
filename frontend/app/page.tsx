@@ -49,6 +49,59 @@ const socialInteractionOptions = [
   'A lot of interaction',
 ];
 
+const stateOptions = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+];
+
 const quietHourOptions = Array.from({ length: 24 }, (_, index) => ({
   value: index,
   label: index === 0 ? '12 AM' : index < 12 ? `${index} AM` : index === 12 ? '12 PM' : `${index - 12} PM`,
@@ -95,7 +148,8 @@ export default function Home() {
   const [occupationFilter, setOccupationFilter] = useState('');
   const [smokingFilter, setSmokingFilter] = useState('');
   const [allergiesFilter, setAllergiesFilter] = useState<string[]>([]);
-  const [zipCodeFilter, setZipCodeFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState('');
   const [minBudgetFilter, setMinBudgetFilter] = useState('');
   const [maxBudgetFilter, setMaxBudgetFilter] = useState('');
   const [quietFromFilter, setQuietFromFilter] = useState('22');
@@ -109,7 +163,9 @@ export default function Home() {
   const [connections, setConnections] = useState<RoommateRequest[]>([]);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const [sendingRequestIds, setSendingRequestIds] = useState<number[]>([]);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const sendingRequestIdsRef = useRef(new Set<number>());
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const refreshRequests = useCallback(async (userId: number) => {
     try {
@@ -167,6 +223,35 @@ export default function Home() {
     loadUsers();
   }, [currentUserId, refreshRequests]);
 
+  useEffect(() => {
+    if (!isProfileMenuOpen) {
+      return;
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    }
+
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsProfileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('keydown', handleEscapeKey);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isProfileMenuOpen]);
+
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const text = `${user.username} ${user.email} ${user.age ?? ''} ${user.diet ?? ''} ${user.occupation ?? ''}`.toLowerCase();
@@ -184,8 +269,10 @@ export default function Home() {
         allergiesMatch = requested.every((req) => userAllergies.includes(req));
       }
 
-      // Zip code
-      const zipMatch = zipCodeFilter ? Number(zipCodeFilter) === Number(user.zip_code) : true;
+      const cityMatch = cityFilter
+        ? (user.city || '').toLowerCase().includes(cityFilter.trim().toLowerCase())
+        : true;
+      const stateMatch = stateFilter ? user.state === stateFilter : true;
 
       // Budget overlap check
       const selectedMin = minBudgetFilter ? Number(minBudgetFilter) : null;
@@ -242,7 +329,8 @@ export default function Home() {
         occupationMatch &&
         smokingMatch &&
         allergiesMatch &&
-        zipMatch &&
+        cityMatch &&
+        stateMatch &&
         budgetMatch &&
         quietMatch &&
         cleanlinessMatch &&
@@ -257,7 +345,8 @@ export default function Home() {
     occupationFilter,
     smokingFilter,
     allergiesFilter,
-    zipCodeFilter,
+    cityFilter,
+    stateFilter,
     minBudgetFilter,
     maxBudgetFilter,
     quietFromFilter,
@@ -353,9 +442,11 @@ export default function Home() {
               onRequestsChanged={() => refreshRequests(currentUserId)}
             />
 
-            <details className="group relative">
-              <summary
+            <div ref={profileMenuRef} className="relative">
+              <button
+                type="button"
                 aria-label="Open profile menu"
+                onClick={() => setIsProfileMenuOpen((current) => !current)}
                 className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-gray-700 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&::-webkit-details-marker]:hidden"
               >
                 {photoPreview ? (
@@ -380,23 +471,27 @@ export default function Home() {
                     />
                   </svg>
                 )}
-              </summary>
+              </button>
 
-              <div className="absolute right-0 z-10 mt-3 w-44 rounded-md border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                <Link
-                  href="/preferences"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
-                >
-                  Preference
-                </Link>
-                <Link
-                  href="/login"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
-                >
-                  Logout
-                </Link>
-              </div>
-            </details>
+              {isProfileMenuOpen ? (
+                <div className="absolute right-0 z-10 mt-3 w-44 rounded-md border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                  <Link
+                    href="/preferences"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    Preference
+                  </Link>
+                  <Link
+                    href="/login"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    Logout
+                  </Link>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </nav>
@@ -442,19 +537,25 @@ export default function Home() {
               onClick={() => setShowFilter(false)}
             />
 
-            <div className="relative w-full max-w-3xl rounded-t-2xl bg-white p-6 shadow-lg dark:bg-gray-900 md:rounded-2xl">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Filter preferences</h3>
+            <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl dark:bg-gray-900 md:rounded-3xl">
+              <div className="flex items-start justify-between border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Filter preferences</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Find roommate matches by lifestyle, location, and budget.
+                  </p>
+                </div>
                 <button
                   aria-label="Close filters"
                   onClick={() => setShowFilter(false)}
-                  className="rounded-md p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                 >
                   ✕
                 </button>
               </div>
 
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="overflow-y-auto px-6 py-5">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Diet
                   <select
@@ -500,11 +601,18 @@ export default function Home() {
                   </select>
                 </label>
                 
-                <div className="col-span-full">
+                <div className="col-span-full rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-950/60">
                   <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">Allergies</span>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {allergyOptions.map((option) => (
-                      <label key={option} className="flex items-center gap-2 text-sm">
+                      <label
+                        key={option}
+                        className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
+                          allergiesFilter.includes(option)
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200'
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           checked={allergiesFilter.includes(option)}
@@ -537,49 +645,93 @@ export default function Home() {
                 </div>
 
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Zip code
+                  City
                   <input
-                    type="number"
-                    value={zipCodeFilter}
-                    onChange={(e) => setZipCodeFilter(e.target.value)}
-                    placeholder="e.g. 10001"
+                    value={cityFilter}
+                    onChange={(e) => setCityFilter(e.target.value)}
+                    placeholder="e.g. New York"
                     className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                   />
                 </label>
 
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Min budget: ${minBudgetFilter || '500'}
-                  <input
-                    type="range"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={minBudgetFilter || '500'}
-                    onChange={(e) => setMinBudgetFilter(e.target.value)}
-                    className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg border-0 bg-gray-200 outline-none transition dark:bg-gray-700"
-                  />
-                  <div className="mt-1 flex justify-between text-xs text-gray-500">
-                    <span>$0</span>
-                    <span>$3,000</span>
-                  </div>
+                  State
+                  <select
+                    value={stateFilter}
+                    onChange={(e) => setStateFilter(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  >
+                    <option value="">All states</option>
+                    {stateOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Max budget: ${maxBudgetFilter || '1500'}
-                  <input
-                    type="range"
-                    min="0"
-                    max="3000"
-                    step="50"
-                    value={maxBudgetFilter || '1500'}
-                    onChange={(e) => setMaxBudgetFilter(e.target.value)}
-                    className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg border-0 bg-gray-200 outline-none transition dark:bg-gray-700"
-                  />
-                  <div className="mt-1 flex justify-between text-xs text-gray-500">
-                    <span>$0</span>
-                    <span>$3,000</span>
+                <div className="col-span-full rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Budget range</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      ${minBudgetFilter || '500'} – ${maxBudgetFilter || '1500'}
+                    </span>
                   </div>
-                </label>
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Min
+                      <input
+                        type="range"
+                        min="0"
+                        max="2900"
+                        step="50"
+                        value={minBudgetFilter || '500'}
+                        onChange={(e) => {
+                          const nextMinBudget = Math.min(Number(e.target.value), 2900);
+                          const currentMaxBudget = Number(maxBudgetFilter || '1500');
+                          const minimumMaxBudget = nextMinBudget + 100;
+
+                          setMinBudgetFilter(String(nextMinBudget));
+                          if (minimumMaxBudget > currentMaxBudget) {
+                            setMaxBudgetFilter(String(minimumMaxBudget));
+                          }
+                        }}
+                        className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg border-0 bg-gray-200 outline-none transition dark:bg-gray-700"
+                      />
+                      <div className="mt-1 flex justify-between text-xs text-gray-500">
+                        <span>$0</span>
+                        <span>$2,900</span>
+                      </div>
+                    </label>
+
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Max
+                      <input
+                        type="range"
+                        min="0"
+                        max="3000"
+                        step="50"
+                        value={maxBudgetFilter || '1500'}
+                        onChange={(e) => {
+                          const nextMaxBudget = Number(e.target.value);
+                          const currentMinBudget = Number(minBudgetFilter || '500');
+                          const maximumMinBudget = nextMaxBudget - 100;
+
+                          setMaxBudgetFilter(e.target.value);
+                          if (maximumMinBudget < currentMinBudget) {
+                            setMinBudgetFilter(String(maximumMinBudget));
+                          }
+                        }}
+                        className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-lg border-0 bg-gray-200 outline-none transition dark:bg-gray-700"
+                      />
+                      <div className="mt-1 flex justify-between text-xs text-gray-500">
+                        <span>$0</span>
+                        <span>$3,000</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
 
                 <div className="col-span-full rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
                   <div className="flex items-center justify-between">
@@ -666,8 +818,9 @@ export default function Home() {
                   />
                 </label>
               </div>
+              </div>
 
-              <div className="mt-6 flex items-center justify-end gap-3">
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
                 <button
                   type="button"
                   onClick={() => {
@@ -675,7 +828,8 @@ export default function Home() {
                     setOccupationFilter('');
                     setSmokingFilter('');
                     setAllergiesFilter([]);
-                    setZipCodeFilter('');
+                    setCityFilter('');
+                    setStateFilter('');
                     setMinBudgetFilter('');
                     setMaxBudgetFilter('');
                     setQuietFromFilter('22');
