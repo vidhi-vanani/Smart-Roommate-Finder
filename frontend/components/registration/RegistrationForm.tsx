@@ -115,6 +115,13 @@ export default function RegistrationForm() {
       >
         {loading ? 'Creating account...' : 'Create account'}
       </button>
+
+      <div className="text-center text-sm text-gray-600 dark:text-gray-300">
+        Already have an account?{' '}
+        <a href="/login" className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+          Sign in
+        </a>
+      </div>
     </form>
   );
 }

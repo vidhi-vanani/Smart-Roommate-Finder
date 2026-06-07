@@ -96,13 +96,7 @@ export default function PreferencesPage() {
     }
 
     if (!storedUserId) {
-      Promise.resolve().then(() => {
-        setFormData((current) => ({
-          ...current,
-          email: storedEmail || '',
-        }));
-        setLoading(false);
-      });
+      router.replace('/login');
       return;
     }
 
@@ -156,7 +150,7 @@ export default function PreferencesPage() {
         );
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   const handleInputChange = (
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>

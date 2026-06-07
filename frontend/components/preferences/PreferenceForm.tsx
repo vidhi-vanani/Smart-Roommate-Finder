@@ -274,21 +274,27 @@ export default function PreferenceForm({
               />
             </Field>
 
+            <Field label="Gender">
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={onInputChange}
+                className={inputClass}
+              >
+                <option value="">Select gender</option>
+                {genderOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
             <Field label="Address">
               <input
                 name="street_address"
                 placeholder="123 Main Street"
                 value={formData.street_address}
-                onChange={onInputChange}
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="City">
-              <input
-                name="city"
-                placeholder="New York"
-                value={formData.city}
                 onChange={onInputChange}
                 className={inputClass}
               />
@@ -300,6 +306,16 @@ export default function PreferenceForm({
                 type="number"
                 placeholder="10001"
                 value={formData.zip_code}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="City">
+              <input
+                name="city"
+                placeholder="New York"
+                value={formData.city}
                 onChange={onInputChange}
                 className={inputClass}
               />
@@ -329,22 +345,6 @@ export default function PreferenceForm({
                 onChange={onInputChange}
                 className={inputClass}
               />
-            </Field>
-
-            <Field label="Gender">
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={onInputChange}
-                className={inputClass}
-              >
-                <option value="">Select gender</option>
-                {genderOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
             </Field>
           </div>
         </div>

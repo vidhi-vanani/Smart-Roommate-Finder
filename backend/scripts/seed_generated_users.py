@@ -33,6 +33,18 @@ def parse_int(value):
     return int(float(value))
 
 
+def parse_gender(value):
+    normalized_value = str(value or "").strip().lower()
+
+    if normalized_value == "male":
+        return "Male"
+
+    if normalized_value == "female":
+        return "Female"
+
+    return None
+
+
 def parse_allergies(value):
     clean_value = str(value or "").strip()
     if clean_value.startswith("{") and clean_value.endswith("}"):
@@ -97,6 +109,7 @@ def insert_users(db, rows):
             hashed_password=hash_password(password),
             phone_number=row.get("phone") or None,
             age=parse_int(row.get("age")),
+            gender=parse_gender(row.get("gender")),
             diet=row.get("diet") or None,
             allergies=parse_allergies(row.get("allergies")),
             description=f"Hi, I am {row.get('first_name', '').strip()} and I am looking for a compatible roommate.".strip(),
