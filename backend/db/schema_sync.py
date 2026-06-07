@@ -16,6 +16,7 @@ USER_PREFERENCE_COLUMNS = {
     "interests": "VARCHAR",
     "smoking_preference": "BOOLEAN",
     "profile_photo": "VARCHAR",
+    "gender": "VARCHAR",
 }
 
 MESSAGE_COLUMNS = {

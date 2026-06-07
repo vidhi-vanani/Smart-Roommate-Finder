@@ -69,6 +69,7 @@ class UserBase(UserPreferencesMixin):
     """
     email: EmailStr
     age: Optional[int] = None
+    gender: Optional[str] = None
     occupation: Optional[str] = None
     city: Optional[str] = None
     phone_number: Optional[str] = None
@@ -116,6 +117,7 @@ class UserRead(BaseModel):
     username: str
     email: EmailStr
     age: Optional[int]
+    gender: Optional[str]
     occupation: Optional[str]
     city: Optional[str]
     phone_number: Optional[str]
@@ -145,6 +147,7 @@ class UserPreferencesUpdate(UserPreferencesMixin):
     Pydantic model for updating user roommate preferences.
     """
     age: Optional[int] = None
+    gender: Optional[str] = None
     occupation: Optional[str] = None
     city: Optional[str] = None
     phone_number: Optional[str] = None

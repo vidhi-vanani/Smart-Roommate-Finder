@@ -45,6 +45,14 @@ const socialInteractionOptions = [
   'A lot of interaction',
 ];
 
+const genderOptions = [
+  'Female',
+  'Male',
+  'Non-binary',
+  'Prefer not to say',
+  'Other',
+];
+
 const stateOptions = [
   'AL',
   'AK',
@@ -220,218 +228,242 @@ export default function PreferenceForm({
           </div>
         )}
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Name">
-            <input
-              name="name"
-              value={formData.name}
-              readOnly
-              className={readOnlyInputClass}
-            />
-          </Field>
+        <div>
+          <h1 className="text-2xl font-semibold">Personal Information</h1>
 
-          <Field label="Email">
-            <input
-              name="email"
-              type="email"
-              value={formData.email}
-              readOnly
-              className={readOnlyInputClass}
-            />
-          </Field>
-
-          <Field label="Phone Number">
-            <input
-              name="phone_number"
-              type="tel"
-              placeholder="+1 (555) 123-4567"
-              value={formData.phone_number}
-              onChange={onInputChange}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Age">
-            <input
-              name="age"
-              type="number"
-              min="18"
-              placeholder="24"
-              value={formData.age}
-              onChange={onInputChange}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Diet">
-            <select
-              name="diet"
-              value={formData.diet}
-              onChange={onInputChange}
-              className={inputClass}
-            >
-              <option value="">Select diet</option>
-              {dietOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Allergies">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={toggleAllergyMenu}
-                className={`${inputClass} flex items-center justify-between text-left`}
-              >
-                <span className="truncate">
-                  {formData.allergies.length > 0
-                    ? formData.allergies
-                        .map((value) =>
-                          value === 'Other' && formData.allergy_other
-                            ? `Other: ${formData.allergy_other}`
-                            : value
-                        )
-                        .join(', ')
-                    : 'Select allergies'}
-                </span>
-                <span className="ml-3 text-xs text-gray-500 dark:text-gray-400">
-                  {isAllergyMenuOpen ? 'Close' : 'Open'}
-                </span>
-              </button>
-
-              {isAllergyMenuOpen && (
-                <div className="absolute left-0 right-0 z-10 mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-300 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                  {allergyOptions.map((option) => (
-                    <label
-                      key={option}
-                      className="mb-2 flex cursor-pointer items-center gap-3 text-sm text-gray-700 dark:text-gray-200"
-                    >
-                      <input
-                        type="checkbox"
-                        name="allergies"
-                        value={option}
-                        checked={formData.allergies.includes(option)}
-                        onChange={(event) =>
-                          onAllergyToggle(option, event.target.checked)
-                        }
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
-                      />
-                      <span>{option}</span>
-                    </label>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={closeAllergyMenu}
-                    className="mt-3 w-full rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
-            </div>
-            {formData.allergies.includes('Other') && (
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <Field label="Name">
               <input
-                name="allergy_other"
-                placeholder="Describe other allergy"
-                value={formData.allergy_other}
-                onChange={onInputChange}
-                className={`${inputClass} mt-3`}
+                name="name"
+                value={formData.name}
+                readOnly
+                className={readOnlyInputClass}
               />
-            )}
-          </Field>
-        </div>
+            </Field>
 
-        <Field label="Description">
-          <textarea
-            name="description"
-            placeholder="If you have any extra things to write..."
-            value={formData.description}
-            onChange={onInputChange}
-            rows={4}
-            className={inputClass}
-          />
-        </Field>
+            <Field label="Email">
+              <input
+                name="email"
+                type="email"
+                value={formData.email}
+                readOnly
+                className={readOnlyInputClass}
+              />
+            </Field>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Street Address">
-            <input
-              name="street_address"
-              placeholder="123 Main Street"
-              value={formData.street_address}
-              onChange={onInputChange}
-              className={inputClass}
-            />
-          </Field>
+            <Field label="Phone Number">
+              <input
+                name="phone_number"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={formData.phone_number}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
 
-          <Field label="Zip Code">
-            <input
-              name="zip_code"
-              type="number"
-              placeholder="10001"
-              value={formData.zip_code}
-              onChange={onInputChange}
-              className={inputClass}
-            />
-          </Field>
+            <Field label="Age">
+              <input
+                name="age"
+                type="number"
+                min="18"
+                placeholder="24"
+                value={formData.age}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
 
-          <Field label="City">
-            <input
-              name="city"
-              placeholder="New York"
-              value={formData.city}
-              onChange={onInputChange}
-              className={inputClass}
-            />
-          </Field>
+            <Field label="Address">
+              <input
+                name="street_address"
+                placeholder="123 Main Street"
+                value={formData.street_address}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
 
-          <Field label="State">
-            <select
-              name="state"
-              value={formData.state}
-              onChange={onInputChange}
-              className={inputClass}
-            >
-              <option value="">Select state</option>
-              {stateOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </Field>
+            <Field label="City">
+              <input
+                name="city"
+                placeholder="New York"
+                value={formData.city}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
 
-          <Field label="Country">
-            <input
-              name="country"
-              placeholder="USA"
-              value={formData.country}
-              onChange={onInputChange}
-              className={inputClass}
-            />
-          </Field>
+            <Field label="Zip Code">
+              <input
+                name="zip_code"
+                type="number"
+                placeholder="10001"
+                value={formData.zip_code}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
 
-          <Field label="Occupation">
-            <select
-              name="occupation"
-              value={formData.occupation}
-              onChange={onInputChange}
-              className={inputClass}
-            >
-              <option value="">Select occupation</option>
-              {occupationOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </Field>
+            <Field label="State">
+              <select
+                name="state"
+                value={formData.state}
+                onChange={onInputChange}
+                className={inputClass}
+              >
+                <option value="">Select state</option>
+                {stateOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Country">
+              <input
+                name="country"
+                placeholder="USA"
+                value={formData.country}
+                onChange={onInputChange}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Gender">
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={onInputChange}
+                className={inputClass}
+              >
+                <option value="">Select gender</option>
+                {genderOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
         </div>
 
         <div className="border-t border-gray-200 pt-8 dark:border-gray-800">
-          <div className="grid gap-5 sm:grid-cols-2">
+          <h2 className="text-2xl font-semibold">Preferences</h2>
+
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <Field label="Diet">
+              <select
+                name="diet"
+                value={formData.diet}
+                onChange={onInputChange}
+                className={inputClass}
+              >
+                <option value="">Select diet</option>
+                {dietOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Allergies">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={toggleAllergyMenu}
+                  className={`${inputClass} flex items-center justify-between text-left`}
+                >
+                  <span className="truncate">
+                    {formData.allergies.length > 0
+                      ? formData.allergies
+                          .map((value) =>
+                            value === 'Other' && formData.allergy_other
+                              ? `Other: ${formData.allergy_other}`
+                              : value
+                          )
+                          .join(', ')
+                      : 'Select allergies'}
+                  </span>
+                  <span className="ml-3 text-xs text-gray-500 dark:text-gray-400">
+                    {isAllergyMenuOpen ? 'Close' : 'Open'}
+                  </span>
+                </button>
+
+                {isAllergyMenuOpen && (
+                  <div className="absolute left-0 right-0 z-10 mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-300 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                    {allergyOptions.map((option) => (
+                      <label
+                        key={option}
+                        className="mb-2 flex cursor-pointer items-center gap-3 text-sm text-gray-700 dark:text-gray-200"
+                      >
+                        <input
+                          type="checkbox"
+                          name="allergies"
+                          value={option}
+                          checked={formData.allergies.includes(option)}
+                          onChange={(event) =>
+                            onAllergyToggle(option, event.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
+                        />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={closeAllergyMenu}
+                      className="mt-3 w-full rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
+              {formData.allergies.includes('Other') && (
+                <input
+                  name="allergy_other"
+                  placeholder="Describe other allergy"
+                  value={formData.allergy_other}
+                  onChange={onInputChange}
+                  className={`${inputClass} mt-3`}
+                />
+              )}
+            </Field>
+
+            <Field label="Occupation">
+              <select
+                name="occupation"
+                value={formData.occupation}
+                onChange={onInputChange}
+                className={inputClass}
+              >
+                <option value="">Select occupation</option>
+                {occupationOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="mt-5">
+            <Field label="Description">
+            <textarea
+              name="description"
+              placeholder="If you have any extra things to write..."
+              value={formData.description}
+              onChange={onInputChange}
+              rows={4}
+              className={inputClass}
+            />
+            </Field>
+          </div>
+
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <Field label={`Minimum Budget: $${formData.min_budget}`}>
               <input
                 name="min_budget"

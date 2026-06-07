@@ -17,6 +17,7 @@ class User(Base):
     hashed_password = Column(String)
     phone_number = Column(String, nullable=True)
     age = Column(Integer, index=True, nullable=True)
+    gender = Column(String, nullable=True)
     diet = Column(String, nullable=True)
     allergies = Column(ARRAY(String), nullable=True)
     description = Column(String, nullable=True)

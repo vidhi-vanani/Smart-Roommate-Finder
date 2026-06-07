@@ -25,6 +25,7 @@ const initialFormData: PreferenceFormData = {
   email: '',
   phone_number: '',
   age: '',
+  gender: '',
   diet: '',
   allergies: [],
   allergy_other: '',
@@ -118,6 +119,7 @@ export default function PreferencesPage() {
           email: user.email,
           phone_number: toText(user.phone_number),
           age: toText(user.age),
+          gender: toText(user.gender),
           diet: toText(user.diet),
           allergies: user.allergies || [],
           allergy_other: '',
@@ -276,6 +278,7 @@ export default function PreferencesPage() {
     const payload: PreferenceUpdateData = {
       phone_number: formData.phone_number || null,
       age: toNullableNumber(formData.age),
+      gender: formData.gender || null,
       diet: formData.diet || null,
       allergies: selectedAllergies.length ? selectedAllergies : null,
       description: formData.description || null,
@@ -346,13 +349,6 @@ export default function PreferencesPage() {
       </nav>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold">Preferences</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Keep your roommate profile accurate and easy to match.
-          </p>
-        </div>
-
         <PreferenceForm
           formData={formData}
           loading={loading}

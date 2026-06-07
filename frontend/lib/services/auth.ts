@@ -18,6 +18,7 @@ export interface UserProfile {
   username: string;
   email: string;
   age?: number | null;
+  gender?: string | null;
   occupation?: string | null;
   city?: string | null;
   phone_number?: string | null;
@@ -42,6 +43,7 @@ export interface UserProfile {
 
 export interface PreferenceUpdateData {
   age?: number | null;
+  gender?: string | null;
   occupation?: string | null;
   city?: string | null;
   phone_number?: string | null;
@@ -223,8 +225,7 @@ export async function updateUserPreferences(
     });
 
     if (!response.ok) {
-      const errorData: ApiError = await response.json();
-      throw new Error(errorData.detail || errorData.message || 'Failed to update preferences');
+      throw new Error(await getApiErrorMessage(response, 'Failed to update preferences'));
     }
 
     const result: UserProfile = await response.json();

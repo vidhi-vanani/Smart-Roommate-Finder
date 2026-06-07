@@ -3,6 +3,7 @@ export interface PreferenceFormData {
   email: string;
   phone_number: string;
   age: string;
+  gender: string;
   diet: string;
   allergies: string[];
   allergy_other: string;
