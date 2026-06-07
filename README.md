@@ -1,8 +1,5 @@
 # Smart Roommate Finder
 
-
-
-
 Smart Roommate Finder is a full-stack web application that helps users find compatible roommates based on personal details, lifestyle preferences, housing needs, and communication between matched users.
 
 The project includes a **Next.js frontend**, a **FastAPI backend**, and a **PostgreSQL database**.
@@ -252,6 +249,12 @@ When the backend starts, it:
 
 ## Frontend Setup
 
+The frontend is a Next.js application located in:
+
+```text
+frontend/
+```
+
 ### 1. Go to the frontend folder
 
 ```bash
@@ -276,18 +279,42 @@ Frontend URL:
 http://localhost:3000
 ```
 
+### Available frontend scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Starts the Next.js development server |
+| `npm run build` | Creates a production build |
+| `npm start` | Starts the production server after building |
+| `npm run lint` | Runs ESLint |
+
 ---
 
 ## Frontend Details
 
-Main frontend pages:
+The frontend uses Next.js App Router, React, TypeScript, Tailwind CSS, and ESLint.
+
+### Main frontend pages
 
 - **Home page:** `frontend/app/page.tsx`
 - **Login page:** `frontend/app/login/page.tsx`
 - **Register page:** `frontend/app/register/page.tsx`
 - **Preferences page:** `frontend/app/preferences/page.tsx`
 
-Frontend API configuration:
+### Main frontend components
+
+- **Login form:** `frontend/components/login/LoginForm.tsx`
+- **Registration form:** `frontend/components/registration/RegistrationForm.tsx`
+- **Preferences form:** `frontend/components/preferences/PreferenceForm.tsx`
+- **Notification menu:** `frontend/components/notifications/NotificationMenu.tsx`
+
+### Frontend libraries
+
+- **API endpoints and base URL:** `frontend/lib/services/apiConfig.ts`
+- **Authentication helpers:** `frontend/lib/services/auth.ts`
+- **Compatibility scoring:** `frontend/lib/compatibility/`
+
+### Frontend API configuration
 
 ```text
 frontend/lib/services/apiConfig.ts
@@ -299,11 +326,19 @@ In development, the frontend uses:
 /api
 ```
 
+The Next.js rewrite in `frontend/next.config.ts` forwards local API requests to the backend:
+
+```text
+/api/:path* -> http://127.0.0.1:8000/:path*
+```
+
 For production, it can use:
 
 ```text
 NEXT_PUBLIC_API_URL
 ```
+
+If `NEXT_PUBLIC_API_URL` is not set in production, the frontend falls back to `/api`.
 
 ---
 

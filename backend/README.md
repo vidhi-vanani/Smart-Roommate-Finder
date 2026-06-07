@@ -1,287 +1,351 @@
 # Smart Roommate Finder - Backend
 
-This is the FastAPI backend for the Smart Roommate Finder application.
+This is the FastAPI backend for the Smart Roommate Finder application. It manages user accounts, login, roommate profile preferences, profile photos, roommate requests, accepted connections, messages, unread message notifications, and generated development data.
 
-## Setup Instructions
-
-### Prerequisites
-- Python 3.9+
-- PostgreSQL 12+
-- pip (Python package manager)
-
-### Installation
-
-1. Navigate to the backend directory:
-```bash
-cd backend
-```
-
-2. Install dependencies:
-```bash
-pip install fastapi uvicorn sqlalchemy psycopg2-binary python-multipart
-```
-
-3. Configure your database connection in `db/database.py`:
-```python
-URL_DATABASE = "postgresql://postgres:your_password@localhost:5432/smart_roommate"
-```
-
-### Running the Server
-
-Start the development server:
-```bash
-uvicorn main:app --reload
-```
-
-The API will be available at: `http://localhost:8000`
-
-API Documentation (interactive): `http://localhost:8000/docs`
+The backend uses PostgreSQL with SQLAlchemy and exposes REST APIs used by the Next.js frontend.
 
 ---
 
-## Generated Development Data
+## Tech Stack
 
-Use the generated data seed script to reset the local development database and load 500 sample users with matches and roommate requests.
-
-### Source CSV
-
-The seed script reads from:
-
-```text
-/Users/vidhivanani/Downloads/Samle data generation/users_output.csv
-```
-
-### Seed Script
-
-The script is located at:
-
-```text
-backend/scripts/seed_generated_users.py
-```
-
-### What It Does
-
-- Deletes existing records from `messages`, `matches`, `roommate_requests`, and `users`.
-- Inserts 500 users from the generated CSV.
-- Hashes each CSV password before saving it.
-- Uses `first_name + last_name` as the `users.username` value.
-- Uses CSV `state_code` for the `users.state` value.
-- Copies profile photos from the CSV image path into `backend/static/uploads`.
-- Stores copied photo URLs as `/static/uploads/<filename>.jpg` in `users.profile_photo`.
-- Creates 2 directed matches for each user.
-- Creates accepted, pending, and rejected roommate requests.
-
-### Run the Seed Script
-
-From the `backend` directory:
-
-```bash
-python3 scripts/seed_generated_users.py --confirm-delete
-```
-
-⚠️ **Warning:** This deletes existing development records from `users`, `matches`, `roommate_requests`, and `messages`.
-
-The script will not run unless `--confirm-delete` is provided.
+- **Python**
+- **FastAPI**
+- **Uvicorn**
+- **SQLAlchemy**
+- **Pydantic**
+- **PostgreSQL**
+- **Passlib / bcrypt**
+- **python-multipart**
 
 ---
 
 ## Backend Project Structure
 
-The backend is now organized into separate layers for routes, services, schemas, models, and database configuration:
-
-- `main.py` — FastAPI entrypoint and CORS setup
-- `db/database.py` — SQLAlchemy engine and session setup
-- `model/user.py` — SQLAlchemy `User` model
-- `schemas/user.py` — Pydantic request/response models
-- `services/security.py` — password hashing and verification helpers
-- `services/user_service.py` — user database operations and business logic
-- `routes/user.py` — HTTP routes that call service functions
-
-## Database Schema Management
-
-### Syncing Database After Schema Changes
-
-When you make changes to the SQLAlchemy models (in `model/user.py`), you need to sync those changes with your PostgreSQL database.
-
-#### Option 1: Automatic Schema Sync (Recommended for Development)
-
-If your table already exists and you just need to add a new column:
-
-```bash
-cd backend
-python3 << 'EOF'
-from sqlalchemy import text, inspect
-from db.database import engine
-
-try:
-    # Get current columns from database
-    inspector = inspect(engine)
-    existing_columns = {col['name'] for col in inspector.get_columns('users')}
-    
-    # Define expected columns from model
-    expected_columns = {
-        'id', 'username', 'email', 'hashed_password', 'phone_number',
-        'age', 'diet', 'allergies', 'description', 'street_address',
-        'city', 'zip_code', 'state', 'country', 'occupation', 'is_active'
-    }
-    
-    # Find missing columns
-    missing_columns = expected_columns - existing_columns
-    
-    if missing_columns:
-        print(f"Found missing columns: {missing_columns}")
-        with engine.connect() as connection:
-            for column in missing_columns:
-                if column == 'phone_number':
-                    connection.execute(text("ALTER TABLE users ADD COLUMN phone_number VARCHAR"))
-                elif column == 'is_active':
-                    connection.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
-                # Add more mappings as needed
-            connection.commit()
-        print("✓ Database schema synced successfully!")
-    else:
-        print("✓ Database schema is already up to date")
-
-except Exception as e:
-    print(f"Error: {e}")
-EOF
+```text
+backend/
+├── db/
+│   ├── database.py
+│   └── schema_sync.py
+├── model/
+│   ├── matches.py
+│   ├── message.py
+│   ├── request.py
+│   └── user.py
+├── routes/
+│   ├── message.py
+│   └── user.py
+├── schemas/
+│   ├── __init__.py
+│   ├── message.py
+│   └── user.py
+├── scripts/
+│   └── seed_generated_users.py
+├── services/
+│   ├── __init__.py
+│   ├── message_notification_service.py
+│   ├── message_service.py
+│   ├── security.py
+│   └── user_service.py
+├── static/
+│   └── uploads/
+├── main.py
+├── seed_users.sql
+├── seed_users_credentials.txt
+└── README.md
 ```
 
-#### Option 2: Full Table Recreate (For Development Only)
+---
 
-⚠️ **WARNING: This will DELETE all data in the users table!**
+## Important Files
 
-If you have major schema changes and you're in development:
+- **`main.py`** - FastAPI application entry point, CORS configuration, static file mounting, database table creation, schema sync, and router registration.
+- **`db/database.py`** - SQLAlchemy database engine, session factory, and declarative base.
+- **`db/schema_sync.py`** - Development helpers for syncing user preference and message columns.
+- **`model/user.py`** - SQLAlchemy model for users, profiles, and roommate preferences.
+- **`model/request.py`** - SQLAlchemy model for roommate requests.
+- **`model/message.py`** - SQLAlchemy model for chat messages.
+- **`model/matches.py`** - SQLAlchemy model for generated roommate matches.
+- **`routes/user.py`** - User registration, login, profile, photo upload, and roommate request routes.
+- **`routes/message.py`** - Message conversation, send message, unread count, and mark-read routes.
+- **`schemas/user.py`** - Pydantic request and response schemas for users and roommate requests.
+- **`schemas/message.py`** - Pydantic request and response schemas for messages and unread counts.
+- **`services/security.py`** - Password hashing and password verification helpers.
+- **`services/user_service.py`** - User and roommate request database logic.
+- **`services/message_service.py`** - Message creation and conversation retrieval logic.
+- **`services/message_notification_service.py`** - Unread message count and mark-read logic.
+- **`scripts/seed_generated_users.py`** - Script for loading generated sample users, matches, requests, and photos.
+
+---
+
+## Setup
+
+### 1. Install Dependencies
+
+From the `backend` directory:
 
 ```bash
-cd backend
-python3 << 'EOF'
-from db.database import engine, Base
-from model.user import User
-
-# Drop all tables and recreate
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
-
-print("✓ All tables recreated successfully!")
-EOF
+pip install fastapi uvicorn sqlalchemy psycopg2-binary python-jose "passlib[bcrypt]" python-multipart
 ```
 
-#### Option 3: Using Alembic (For Production)
+### 2. Configure PostgreSQL
 
-For production environments, use Alembic for proper database migrations:
+The database connection is configured in:
+
+```text
+db/database.py
+```
+
+Current local database URL:
+
+```text
+postgresql://postgres:1234@localhost:5433/smart_roommate
+```
+
+Create the database before running the backend:
+
+```sql
+CREATE DATABASE smart_roommate;
+```
+
+If your local PostgreSQL credentials or port are different, update `URL_DATABASE` in `db/database.py`.
+
+### 3. Run the Backend
+
+From the `backend` directory:
 
 ```bash
-# Initialize Alembic (one time)
-alembic init alembic
+uvicorn main:app --reload
+```
 
-# Create a migration after model changes
-alembic revision --autogenerate -m "Add phone_number column"
+Backend server:
 
-# Apply the migration
-alembic upgrade head
+```text
+http://localhost:8000
+```
+
+FastAPI docs:
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+## Startup Behavior
+
+When the backend starts, it:
+
+- Creates missing database tables using SQLAlchemy metadata.
+- Syncs development user preference columns.
+- Syncs development message columns.
+- Enables CORS for local frontend origins.
+- Serves uploaded files from `/static`.
+- Registers user and message API routes.
+
+Uploaded profile photos are saved under:
+
+```text
+backend/static/uploads
+```
+
+They are served with URLs like:
+
+```text
+/static/uploads/<filename>
 ```
 
 ---
 
 ## API Endpoints
 
-### User Registration
-- **POST** `/users/`
-- **Request Body:**
-  ```json
-  {
-    "name": "John Doe",
-    "email": "john@example.com",
-    "password": "password123",
-    "phone_number": "+1 (555) 123-4567"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "message": "User registered successfully",
-    "user_id": 1,
-    "email": "john@example.com"
-  }
-  ```
+### User and Authentication APIs
 
-### Get User by ID
-- **GET** `/user/{user_id}`
-- **Response:**
-  ```json
-  {
-    "id": 1,
-    "username": "John Doe",
-    "email": "john@example.com",
-    ...
-  }
-  ```
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/users` | Register a new user |
+| `POST` | `/users/` | Register a new user |
+| `POST` | `/login` | Login with email and password |
+| `POST` | `/login/` | Login with email and password |
+| `POST` | `/user` | Create a user record |
+| `GET` | `/users` | Get all users |
+| `GET` | `/user/{user_id}` | Get one user by ID |
+| `PATCH` | `/user/{user_id}/preferences` | Update profile and roommate preferences |
+| `POST` | `/user/{user_id}/photo` | Upload a profile photo |
 
----
+### Roommate Request APIs
 
-## Project Structure
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/requests/` | Send a roommate request |
+| `GET` | `/requests/sent/{user_id}` | Get requests sent by a user |
+| `GET` | `/requests/received/{user_id}` | Get requests received by a user |
+| `GET` | `/requests/connections/{user_id}` | Get accepted roommate connections |
+| `POST` | `/requests/{request_id}/accept?receiver_id={receiver_id}` | Accept a pending request |
+| `POST` | `/requests/{request_id}/reject?receiver_id={receiver_id}` | Reject a pending request |
 
-```
-backend/
-├── main.py                 # FastAPI app entry point
-├── db/
-│   └── database.py        # Database configuration
-├── model/
-│   └── user.py            # SQLAlchemy User model
-├── routes/
-│   └── user.py            # User API endpoints
-└── README.md              # This file
-```
+### Message APIs
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/messages/unread/{user_id}` | Get unread message counts grouped by sender |
+| `GET` | `/messages/{current_user_id}/{other_user_id}` | Get conversation between two users |
+| `POST` | `/messages/` | Send a message |
+| `POST` | `/messages/read/{current_user_id}/{other_user_id}` | Mark messages as read |
 
 ---
 
-## CORS Configuration
+## Database Tables
 
-CORS is configured in `main.py` to allow requests from:
-- http://localhost:3000
-- http://localhost:3001
-- http://127.0.0.1:3000
-- http://127.0.0.1:3001
-- http://10.0.0.132:3000
+### `users`
 
-To add more origins, update the `allow_origins` list in `main.py`.
+Stores user account information, profile details, and roommate preferences.
+
+Important fields include:
+
+- `id`
+- `username`
+- `email`
+- `hashed_password`
+- `phone_number`
+- `age`
+- `occupation`
+- `city`
+- `street_address`
+- `zip_code`
+- `state`
+- `country`
+- `diet`
+- `allergies`
+- `description`
+- `min_budget`
+- `max_budget`
+- `quiet_hours_from`
+- `quiet_hours_to`
+- `cleanliness`
+- `social_interaction`
+- `interests`
+- `smoking_preference`
+- `profile_photo`
+- `is_active`
+
+### `roommate_requests`
+
+Stores roommate request records between users.
+
+Important fields include:
+
+- `id`
+- `sender_id`
+- `receiver_id`
+- `status`
+- `created_at`
+- `updated_at`
+
+Supported statuses:
+
+- `pending`
+- `accepted`
+- `rejected`
+
+### `messages`
+
+Stores chat messages between users.
+
+Important fields include:
+
+- `id`
+- `sender_id`
+- `receiver_id`
+- `content`
+- `is_read`
+- `created_at`
+
+### `matches`
+
+Stores generated roommate match relationships.
+
+Important fields include:
+
+- `id`
+- `user_id`
+- `matched_user_id`
+
+---
+
+## Generated Development Data
+
+The backend includes a seed script for loading generated sample users, profile photos, matches, and roommate requests.
+
+Script path:
+
+```text
+scripts/seed_generated_users.py
+```
+
+Run from the `backend` directory:
+
+```bash
+python3 scripts/seed_generated_users.py --confirm-delete
+```
+
+**Warning:** this deletes existing development data from `users`, `matches`, `roommate_requests`, and `messages`.
+
+The script requires the `--confirm-delete` flag before it will run.
+
+---
+
+## CORS
+
+CORS is configured in `main.py`.
+
+Allowed local frontend origins include:
+
+- `http://localhost:3000`
+- `http://localhost:3001`
+- `http://127.0.0.1:3000`
+- `http://127.0.0.1:3001`
+- `http://10.0.0.132:3000`
+- `http://10.0.0.16:3000`
+
+If the frontend runs on another origin, add it to the `allow_origins` list in `main.py`.
 
 ---
 
 ## Troubleshooting
 
-### Database Connection Error
-- Ensure PostgreSQL is running
-- Check your connection string in `db/database.py`
-- Verify database name, user, and password
+### Backend cannot connect to PostgreSQL
 
-### Schema Mismatch Errors
-- Run the "Automatic Schema Sync" script above
-- Check that your model changes are saved before running the sync script
+- Make sure PostgreSQL is running.
+- Make sure the `smart_roommate` database exists.
+- Check the username, password, host, port, and database name in `db/database.py`.
 
-### CORS Errors
-- Ensure the frontend URL is in the `allow_origins` list in `main.py`
-- Clear your browser cache and restart the dev server
+### Frontend cannot call backend
+
+- Make sure the backend is running at `http://localhost:8000`.
+- Check CORS settings in `main.py`.
+- Check frontend API configuration in `frontend/lib/services/apiConfig.ts`.
+- Check frontend rewrites in `frontend/next.config.ts`.
+
+### Uploaded images do not show
+
+- Make sure uploaded files exist under `backend/static/uploads`.
+- Make sure the stored photo path starts with `/static/uploads/`.
+- Make sure the backend is running so static files are served.
+
+### Seed script fails
+
+- Make sure the database connection is correct.
+- Run the script from the `backend` directory.
+- Include the required `--confirm-delete` flag.
 
 ---
 
-## Security Notes
+## Development Notes
 
-⚠️ **Before deploying to production:**
+This backend is currently configured for local development. Before production deployment:
 
-1. **Hash Passwords**: Use `bcrypt` or `passlib` to hash passwords
-2. **Environment Variables**: Move database credentials to `.env` file
-3. **Validation**: Add request validation with Pydantic models
-4. **Authentication**: Implement JWT tokens for secure API access
-5. **Rate Limiting**: Add rate limiting to prevent abuse
-
----
-
-## Contributing
-
-When making changes to the database schema:
-1. Update the model in `model/user.py`
-2. Run the database sync script
-3. Test your changes locally
-4. Document the changes in this README
+- Move database credentials into environment variables.
+- Restrict CORS origins.
+- Add production-ready authentication or session handling.
+- Add database migrations with a tool such as Alembic.
+- Avoid committing real user data or private credentials.
